@@ -1,0 +1,12 @@
+pandas
+numpy
+requests
+scikit-learn
+matplotlib
+streamlit
+textblob
+transformers
+torch
+xgboost
+jupyter
+ipykernel
