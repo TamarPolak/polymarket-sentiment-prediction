@@ -1,0 +1,92 @@
+Binary Model Results - Move vs Stable
+=====================================
+
+Dataset summary
+---------------
+Dataset size: 164
+Train size: 131
+Test size: 33
+
+Target distribution:
+target
+Stable    139
+Move       25
+Name: count, dtype: int64
+
+Target distribution percentage:
+target
+Stable    0.847561
+Move      0.152439
+Name: proportion, dtype: float64
+
+Features used:
+- netanyahu_price
+- bennett_price
+- price_gap
+- netanyahu_change_1h
+- bennett_change_1h
+- gap_change_1h
+- netanyahu_change_2h
+- bennett_change_2h
+- price_gap_abs
+
+
+========== DUMMY BASELINE RESULTS ==========
+
+DUMMY BASELINE Accuracy: 0.6061
+DUMMY BASELINE F1 macro: 0.3774
+
+DUMMY BASELINE classification report:
+              precision    recall  f1-score   support
+
+        Move       0.00      0.00      0.00        13
+      Stable       0.61      1.00      0.75        20
+
+    accuracy                           0.61        33
+   macro avg       0.30      0.50      0.38        33
+weighted avg       0.37      0.61      0.46        33
+
+DUMMY BASELINE confusion matrix:
+[[ 0 13]
+ [ 0 20]]
+
+========== LOGISTIC REGRESSION RESULTS ==========
+
+LOGISTIC REGRESSION Accuracy: 0.6667
+LOGISTIC REGRESSION F1 macro: 0.6654
+
+LOGISTIC REGRESSION classification report:
+              precision    recall  f1-score   support
+
+        Move       0.56      0.77      0.65        13
+      Stable       0.80      0.60      0.69        20
+
+    accuracy                           0.67        33
+   macro avg       0.68      0.68      0.67        33
+weighted avg       0.70      0.67      0.67        33
+
+LOGISTIC REGRESSION confusion matrix:
+[[10  3]
+ [ 8 12]]
+
+========== RANDOM FOREST RESULTS ==========
+
+RANDOM FOREST Accuracy: 0.7273
+RANDOM FOREST F1 macro: 0.7232
+
+RANDOM FOREST classification report:
+              precision    recall  f1-score   support
+
+        Move       0.62      0.77      0.69        13
+      Stable       0.82      0.70      0.76        20
+
+    accuracy                           0.73        33
+   macro avg       0.72      0.73      0.72        33
+weighted avg       0.75      0.73      0.73        33
+
+RANDOM FOREST confusion matrix:
+[[10  3]
+ [ 6 14]]
+
+Initial conclusion:
+Random Forest achieved the best initial performance in this MVP. The results suggest that the engineered price-based features contain predictive signal. However, the dataset is still small and imbalanced, so the results should be treated as preliminary. In the next stage, more price data should be collected and sentiment-based features should be added.
