@@ -12,7 +12,6 @@ OUTPUT_PATH = PROJECT_ROOT / "data" / "processed" / "market_features.csv"
 MOVEMENT_THRESHOLD = 0.001
 CANDIDATES = ["Benjamin Netanyahu", "Naftali Bennett"]
 HORIZONS = {
-    "10m": pd.Timedelta(minutes=10),
     "1h": pd.Timedelta(hours=1),
     "2h": pd.Timedelta(hours=2),
     "24h": pd.Timedelta(hours=24),
@@ -129,12 +128,8 @@ def main() -> None:
     median_resolution = infer_median_resolution(df)
     print(f"Median Polymarket resolution: {median_resolution}")
 
-    # Align near-identical candidate timestamps to the available data resolution.
-    # Current Polymarket data is usually hourly, while future 10m data can use 10-minute buckets.
-    if median_resolution is not None and median_resolution <= pd.Timedelta(minutes=10):
-        df["timestamp"] = df["timestamp"].dt.floor("10min")
-    else:
-        df["timestamp"] = df["timestamp"].dt.floor("h")
+    # Align near-identical candidate timestamps to the available hourly data resolution.
+    df["timestamp"] = df["timestamp"].dt.floor("h")
 
     df = df.groupby(["timestamp", "candidate"], as_index=False).agg(price=("price", "mean"))
     wide = df.pivot_table(index="timestamp", columns="candidate", values="price", aggfunc="mean").reset_index()
@@ -142,12 +137,6 @@ def main() -> None:
 
     all_features = []
     for horizon_name, horizon_delta in HORIZONS.items():
-        if horizon_name == "10m" and median_resolution is not None and median_resolution > pd.Timedelta(minutes=10):
-            print(
-                "WARNING: Skipping 10m horizon because current Polymarket price resolution "
-                f"is {median_resolution}, which is not frequent enough for 10-minute labels."
-            )
-            continue
         horizon_features = build_features_for_horizon(wide, horizon_name, horizon_delta)
         if horizon_features.empty:
             print(f"WARNING: No valid rows created for horizon {horizon_name}.")

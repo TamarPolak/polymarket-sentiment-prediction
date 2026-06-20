@@ -36,7 +36,7 @@ The current available data includes price observations for:
 - Benjamin Netanyahu
 - Naftali Bennett
 
-The current price history is mostly hourly. Because of that, the 10-minute horizon is supported in the code structure but skipped gracefully when the data resolution is not frequent enough.
+The current price history is mostly hourly. The 10-minute horizon was part of the original research scope, but it is not included in the current implemented experiments.
 
 ### X/Twitter Sentiment Data
 
@@ -71,14 +71,13 @@ Labels:
 - `Down`: `price_change < -MOVEMENT_THRESHOLD`
 - `Stable`: otherwise
 
-Prediction horizons:
+Current implemented prediction horizons:
 
-- 10 minutes
 - 1 hour
 - 2 hours
 - 24 hours
 
-If 10-minute Polymarket data is not available with the current price resolution, the pipeline skips it with a clear warning.
+The 10-minute horizon was part of the original research scope, but it was not included in the current experiments because the available Polymarket price data is hourly. The current experiments therefore focus on 1h, 2h and 24h horizons.
 
 ## Feature Engineering
 
@@ -198,7 +197,7 @@ With the current Polymarket data, valid multiclass datasets were created for:
 - 2 hours
 - 24 hours
 
-The 10-minute horizon was skipped because the current price history is mostly hourly.
+The 10-minute horizon was part of the original research scope, but it was not included in the current experiments because the available Polymarket price data is hourly.
 
 Class availability:
 
@@ -291,7 +290,7 @@ streamlit run dashboard/app.py
 
 - Sentiment data is currently fake/sample data, not real X/Twitter data.
 - The sentiment pipeline is rule-based, not a trained Hebrew political NLP model.
-- The current Polymarket data is mostly hourly, so 10-minute prediction is not available yet.
+- The current Polymarket data is mostly hourly, so 10-minute prediction remains future work rather than an implemented experiment.
 - The 24-hour target is less balanced than 1h and 2h.
 - More historical Polymarket data is needed for stronger model evaluation.
 - Real X/Twitter data is needed before drawing conclusions about whether sentiment improves prediction.
@@ -304,3 +303,5 @@ streamlit run dashboard/app.py
 4. Rerun the full Market + Sentiment pipeline.
 5. Compare whether real sentiment features improve Macro-F1 over market-only models.
 6. Improve the dashboard and prepare final presentation slides.
+
+

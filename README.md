@@ -23,14 +23,13 @@ Main candidates:
 - Benjamin Netanyahu
 - Naftali Bennett
 
-Prediction horizons:
+Current implemented prediction horizons:
 
-- 10 minutes
 - 1 hour
 - 2 hours
 - 24 hours
 
-If the current Polymarket price resolution does not support 10-minute labels, the code skips `10m` gracefully with a clear warning.
+The 10-minute horizon was part of the original research scope, but it was not included in the current experiments because the available Polymarket price data is hourly. The current experiments therefore focus on 1h, 2h and 24h horizons.
 
 Target definition:
 
@@ -227,7 +226,7 @@ Stable 20
 
 All three classes are available for 1h, 2h, and 24h.
 
-The 10-minute horizon is not available with the current data because the Polymarket price history is mostly hourly. The code supports the horizon structurally and skips it with a warning.
+The 10-minute horizon was part of the original research scope, but it was not included in the current experiments because the available Polymarket price data is hourly. The current experiments therefore focus on 1h, 2h and 24h horizons.
 
 ## Important Interpretation Note
 
@@ -364,5 +363,6 @@ USE_HEBREW_LANGUAGE_FILTER = False
 ```
 
 After collection, either copy/rename this file into the sentiment input path or update `src/sentiment.py` to read the real X file for the final run.
+
 
 

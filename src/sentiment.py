@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import argparse
 import re
 from pathlib import Path
 
@@ -7,8 +8,8 @@ import pandas as pd
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-INPUT_PATH = PROJECT_ROOT / "data" / "raw" / "text_posts_sample.csv"
-OUTPUT_PATH = PROJECT_ROOT / "data" / "processed" / "text_posts_with_sentiment.csv"
+DEFAULT_INPUT_PATH = PROJECT_ROOT / "data" / "raw" / "text_posts_sample.csv"
+DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "processed" / "text_posts_with_sentiment.csv"
 
 # Editable MVP lexicons. Political identity/context terms are features, not sentiment by themselves.
 ENTITY_ALIASES = {
@@ -252,11 +253,32 @@ def join_values(values: list[str]) -> str:
     return "|".join(values)
 
 
-def main() -> None:
-    if not INPUT_PATH.exists():
-        raise FileNotFoundError(f"Input file not found: {INPUT_PATH}")
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run rule-based political sentiment analysis.")
+    parser.add_argument("--input", default=str(DEFAULT_INPUT_PATH), help="Input CSV path.")
+    parser.add_argument("--output", default=str(DEFAULT_OUTPUT_PATH), help="Output CSV path.")
+    return parser.parse_args()
 
-    df = pd.read_csv(INPUT_PATH)
+
+def resolve_path(path_value: str) -> Path:
+    path = Path(path_value)
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    return path
+
+
+def main() -> None:
+    args = parse_args()
+    input_path = resolve_path(args.input)
+    output_path = resolve_path(args.output)
+
+    print(f"Input path: {input_path.relative_to(PROJECT_ROOT).as_posix() if input_path.is_relative_to(PROJECT_ROOT) else input_path}")
+    print(f"Output path: {output_path.relative_to(PROJECT_ROOT).as_posix() if output_path.is_relative_to(PROJECT_ROOT) else output_path}")
+
+    if not input_path.exists():
+        raise FileNotFoundError(f"Input file not found: {input_path}")
+
+    df = pd.read_csv(input_path)
     required_columns = ["timestamp", "text", "candidate", "likes", "reposts", "comments"]
     missing_columns = [column for column in required_columns if column not in df.columns]
     if missing_columns:
@@ -303,13 +325,14 @@ def main() -> None:
         "target_sentiment", "intensity_score",
     ]
 
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    df[output_columns].to_csv(OUTPUT_PATH, index=False, encoding="utf-8")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    df[output_columns].to_csv(output_path, index=False, encoding="utf-8")
 
-    print(f"Saved sentiment output to {OUTPUT_PATH.relative_to(PROJECT_ROOT).as_posix()}")
+    print(f"Saved sentiment output to {output_path.relative_to(PROJECT_ROOT).as_posix() if output_path.is_relative_to(PROJECT_ROOT) else output_path}")
     print(f"Rows processed: {len(df)}")
     print(df["sentiment_label"].value_counts().to_string())
 
 
 if __name__ == "__main__":
     main()
+

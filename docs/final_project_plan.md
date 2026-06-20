@@ -28,14 +28,13 @@ Target definition:
 
 ## Prediction Horizons
 
-The pipeline supports:
+The current implemented experiments support:
 
-- 10 minutes
 - 1 hour
 - 2 hours
 - 24 hours
 
-If 10-minute Polymarket data is not available with the current price resolution, the code keeps the horizon in the structure but skips it gracefully with a warning.
+The 10-minute horizon was part of the original research scope, but it was not included in the current experiments because the available Polymarket price data is hourly. The current experiments therefore focus on 1h, 2h and 24h horizons.
 
 ## Feature Sources
 
@@ -83,3 +82,4 @@ data/processed/market_features.csv
 data/final/market_sentiment_dataset.csv
 results/final_model_comparison.md
 ```
+

@@ -17,7 +17,7 @@ FINAL_RESULTS_PATH = PROJECT_ROOT / "results" / "final_model_comparison.md"
 
 st.set_page_config(page_title="Polymarket Sentiment Dashboard", layout="wide")
 st.title("Polymarket Sentiment Prediction")
-st.caption("Final target: Up / Down / Stable price movement for Benjamin Netanyahu and Naftali Bennett")
+st.caption("Final target: Up / Down / Stable price movement for Benjamin Netanyahu and Naftali Bennett. Current horizons: 1h, 2h, 24h.")
 
 
 def read_csv_if_exists(path: Path) -> pd.DataFrame | None:
@@ -118,8 +118,6 @@ def show_multiclass_dataset() -> None:
         st.dataframe(distribution, use_container_width=True)
         st.bar_chart(distribution)
 
-        if "10m" not in set(active_df["horizon"].astype(str)):
-            st.warning("10m horizon is not available in the current final dataset. The current Polymarket history is mostly hourly, so the pipeline skips 10m gracefully.")
 
     st.subheader("Sample Rows")
     st.dataframe(active_df.head(30), use_container_width=True)
@@ -207,3 +205,4 @@ show_market_prices()
 show_multiclass_dataset()
 show_model_results()
 show_sentiment_summary()
+
