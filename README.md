@@ -253,9 +253,15 @@ Safety defaults:
 
 ```text
 DRY_RUN = True
+TEST_ONE_QUERY_ONLY = True
+TEST_QUERY_GROUP_NAME = "netanyahu_english"
+TEST_MAX_POSTS_TOTAL = 20
+TEST_MAX_POSTS_PER_QUERY = 20
 MAX_POSTS_TOTAL = 500
 MAX_POSTS_PER_QUERY = 100
 ```
+
+When `TEST_ONE_QUERY_ONLY=True`, the script uses the smaller test limits. If `TEST_QUERY_GROUP_NAME` is set, only that query group is tested. If `TEST_QUERY_GROUP_NAME = None`, the script tries query groups in order and stops only after a query returns at least one post.
 
 The output path is:
 
@@ -291,23 +297,72 @@ python src/collect_x_data.py
 
 With `DRY_RUN=True`, the script prints the collection plan, queries, and limits, then stops before making any API calls.
 
-### Real Collection
+### 20-Post Real Test
 
-After reviewing the plan and setting a strict X spending limit:
+After reviewing the dry run, setting a strict X spending limit, and turning auto-recharge off:
 
-1. Set `DRY_RUN = False` in `src/collect_x_data.py`.
-2. Keep `MAX_POSTS_TOTAL` limited, for example 500.
-3. Make sure X auto-recharge is off.
-4. Run:
+1. Keep:
+
+```python
+TEST_ONE_QUERY_ONLY = True
+TEST_QUERY_GROUP_NAME = "netanyahu_english"
+TEST_MAX_POSTS_TOTAL = 20
+TEST_MAX_POSTS_PER_QUERY = 20
+```
+
+2. Set:
+
+```python
+DRY_RUN = False
+```
+
+3. Run:
 
 ```bash
 python src/collect_x_data.py
 ```
 
-The collector deduplicates by `post_id`, stops when `MAX_POSTS_TOTAL` is reached, and saves posts to:
+The script will print:
+
+```text
+REAL API COLLECTION MODE — this may use X credits.
+```
+
+With the current test settings, the estimated maximum cost is 20 posts * $0.005 = $0.10.
+
+### Full 500-Post Collection
+
+After the 20-post test succeeds:
+
+1. Set:
+
+```python
+DRY_RUN = False
+TEST_ONE_QUERY_ONLY = False
+TEST_QUERY_GROUP_NAME = None
+MAX_POSTS_TOTAL = 500
+MAX_POSTS_PER_QUERY = 100
+```
+
+2. Keep X auto-recharge off and keep the spending limit low.
+3. Run:
+
+```bash
+python src/collect_x_data.py
+```
+
+The collector deduplicates by `post_id`, skips failed query groups instead of crashing the whole run, stops when `MAX_POSTS_TOTAL` is reached, and saves posts to:
 
 ```text
 data/raw/x_posts_real_limited.csv
 ```
 
+If Hebrew queries fail again, set this constant in `src/collect_x_data.py`:
+
+```python
+USE_HEBREW_LANGUAGE_FILTER = False
+```
+
 After collection, either copy/rename this file into the sentiment input path or update `src/sentiment.py` to read the real X file for the final run.
+
+
