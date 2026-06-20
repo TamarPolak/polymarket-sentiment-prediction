@@ -1,223 +1,27 @@
 ﻿# Polymarket Sentiment Prediction
 
-This project predicts short-term price movement in a Polymarket political prediction market using market data and sentiment signals from public political discourse.
+This project predicts short-term price movement in a Polymarket political prediction market using market data and sentiment features from public political discourse.
+
+Case study: `Who will be the next Prime Minister of Israel after the next election?`
 
 ## Research Question
 
-Can sentiment and discussion volume from X/Twitter improve prediction of Benjamin Netanyahu's contract price movement on Polymarket?
+Can sentiment and discussion volume from X/Twitter improve prediction of Polymarket price movement for the leading candidates in the Israeli Prime Minister market?
 
-## Project Goal
+The project does not directly predict who will become Prime Minister. It predicts whether Polymarket YES contract prices for leading candidates will go up, down, or remain stable.
 
-The goal is to predict the direction of future Polymarket candidate price movement using market features and sentiment features. The project starts with Polymarket price history and engineered market features, then adds public discussion signals related to Netanyahu, Bennett, Bibi, Naftali Bennett, Israeli election, בחירות בישראל, נתניהו, and בנט.
+## Final Project Scope
 
-## Current MVP
-
-- Collect Polymarket price data.
-- Collect public text data related to Israeli election candidates.
-- Run sentiment analysis.
-- Merge market and sentiment data by time windows.
-- Train baseline and combined ML models.
-- Display results in a dashboard.
-
-For the current submission, the sentiment part uses a fake/sample dataset for testing only. These are not real X posts. X API access is paid, so real data collection should happen only after the local pipeline works correctly.
-
-## Repository Structure
-
-```text
-data/
-  raw/
-    text_posts_sample.csv
-    polymarket_price_history.csv
-  processed/
-    text_posts_with_sentiment.csv
-    sentiment_features_by_hour.csv
-docs/
-  week7_technical_plan.md
-src/
-  collect_polymarket.py
-  collect_price_history.py
-  features.py
-  train_binary_model.py
-  train_multiclass_model.py
-  sentiment.py
-  build_combined_dataset.py
-dashboard/
-  app.py
-results/
-  baseline_results.md
-  binary_model_results.txt
-```
-
-## Install Requirements
-
-```bash
-pip install -r requirements.txt
-```
-
-If Streamlit is not installed and you want to run the dashboard:
-
-```bash
-pip install streamlit
-```
-
-## Run Polymarket Data Collection
-
-Use Tamar's existing Polymarket collection scripts:
-
-```bash
-python src/collect_polymarket.py
-python src/collect_price_history.py
-```
-
-Do not change Tamar's collection scripts unless a later integration step requires a small compatibility update.
-
-## Run the Legacy Binary Model
-
-```bash
-python src/train_binary_model.py
-```
-
-This is a legacy market-only reference model. The final project comparison uses the multiclass pipeline below.
-
-## Run the Sentiment Pipeline
-
-```bash
-python src/sentiment.py
-```
-
-This reads:
-
-```text
-data/raw/text_posts_sample.csv
-```
-
-and writes:
-
-```text
-data/processed/text_posts_with_sentiment.csv
-```
-
-The output includes:
-
-```text
-timestamp,text,candidate,likes,reposts,comments,clean_text,sentiment_score,sentiment_label
-```
-
-## Build Hourly Sentiment Features
-
-```bash
-python src/build_combined_dataset.py
-```
-
-This reads:
-
-```text
-data/processed/text_posts_with_sentiment.csv
-```
-
-and writes:
-
-```text
-data/processed/sentiment_features_by_hour.csv
-```
-
-The output contains hourly sentiment features that can later be merged with Polymarket market features.
-
-## Dashboard
-
-```bash
-streamlit run dashboard/app.py
-```
-
-The dashboard checks whether files exist before loading them, so it should still open when some market, model, or sentiment files are missing.
-
-It can show:
-
-- Netanyahu price over time.
-- Bennett price over time.
-- Price gap over time.
-- Model results summary.
-- Sentiment summary.
-
-## Preliminary Results
-
-The final project target is multiclass classification: Up / Down / Stable. Labels are derived from future Polymarket price movement for each candidate and horizon.
-
-The sentiment pipeline currently validates the data flow only. It does not yet prove that sentiment improves prediction because the current sentiment input is sample data, not real X data.
-
-## Next Step
-
-The next experiment is to compare:
-
-- Dummy Baseline.
-- Market-only Logistic Regression.
-- Market-only Random Forest.
-- Market + Sentiment Logistic Regression.
-- Market + Sentiment Random Forest.
-
-Before collecting real X data, the sentiment pipeline should be validated on the sample file. After that, a limited number of real public X posts can be collected under a controlled paid API budget and saved using the same schema.
-
-## Improved Sentiment Layer
-
-The sentiment pipeline was expanded to better match Israeli political discourse. It now adds these columns to `data/processed/text_posts_with_sentiment.csv`:
-
-```text
-mentioned_entities
-main_entity
-mentioned_parties
-political_bloc_terms
-political_topics
-matched_political_phrases
-target_sentiment
-intensity_score
-```
-
-The pipeline now supports:
-
-- Entity detection for Netanyahu/Bibi, Bennett, Lapid, Gantz, Ben Gvir, Smotrich, and future candidates through editable dictionaries.
-- Party and bloc detection for Israeli parties and political blocs.
-- Topic detection for elections, leadership, government, protest, responsibility/blame, security, hostages, war, religion and state, judiciary, economy, coalition, corruption, Jewish-Arab relations, and left-right polarization.
-- Strong Israeli political phrase detection, including phrases such as "אתה הראש אתה אשם", "רק ביבי", "רק לא ביבי", "מדינת הלכה", and "בחירות עכשיו".
-- `intensity_score` for stronger political language.
-- `target_sentiment` toward the main mentioned political figure.
-
-Political identity terms such as left/right, Arab/Jewish, religious/secular are treated as topic or bloc indicators only. They are not positive or negative by themselves.
-
-The next step is to collect real public X posts under a limited paid API budget, run this pipeline on real data, and then compare Market-only against Market + Sentiment model performance.
-
-## Israeli Political Lexicon Expansion
-
-The sentiment layer now includes a broader Israeli political lexicon for MVP testing. It detects additional entities, parties, blocs, ideological context terms, and political slogans, including Lieberman, Gantz, Lapid, Ben Gvir, Smotrich, Deri, Eisenkot, Yisrael Beiteinu, Meretz, Labor, Raam, Hadash-Taal, Judea and Samaria, איו"ש, settlers, settlements, sovereignty, annexation, hostages, Hamas, Iran, and Hezbollah.
-
-Important: political identity and context terms are not automatically positive or negative. Terms like ימין, שמאל, מתנחלים, מתיישבים, ערבים, חרדים, דתיים, חילונים, חמאס, and פלסטינים are treated as context/topic indicators only.
-
-Only clearly evaluative words and phrases affect sentiment, for example: מושחת, כישלון, מחדל, אלטרנטיבה, חזק, מתאים, לא מתאים, אשם, and הביתה.
-
-## Final Modeling Scope
-
-The final project uses only the multiclass target:
+Final target:
 
 ```text
 target_multiclass = Up / Down / Stable
 ```
 
-The goal is to predict the direction of future price movement for the leading Polymarket candidates:
+Main candidates:
 
 - Benjamin Netanyahu
 - Naftali Bennett
-
-For each candidate, timestamp, and horizon:
-
-```text
-price_change = future_price - current_price
-MOVEMENT_THRESHOLD = 0.001
-```
-
-Target labels:
-
-- `Up`: `price_change > MOVEMENT_THRESHOLD`
-- `Down`: `price_change < -MOVEMENT_THRESHOLD`
-- `Stable`: otherwise
 
 Prediction horizons:
 
@@ -226,19 +30,96 @@ Prediction horizons:
 - 2 hours
 - 24 hours
 
-If 10-minute Polymarket data is not available with the current price resolution, the code keeps the horizon in the structure but skips it gracefully with a clear warning.
+If the current Polymarket price resolution does not support 10-minute labels, the code skips `10m` gracefully with a clear warning.
 
-Final model comparison:
+Target definition:
 
-- Dummy Baseline
-- Market-only Logistic Regression
-- Market-only Random Forest
-- Market + Sentiment Logistic Regression
-- Market + Sentiment Random Forest
+```text
+price_change = future_price - current_price
+MOVEMENT_THRESHOLD = 0.001
+```
 
-X/Twitter data is used as predictive features, while the labels are derived from future Polymarket price movements. Therefore, collecting real X data improves the sentiment signal, but the class distribution of Up / Down / Stable depends on the amount, resolution and volatility of Polymarket price data.
+Labels:
 
-## Final Pipeline Commands
+- `Up`: `price_change > MOVEMENT_THRESHOLD`
+- `Down`: `price_change < -MOVEMENT_THRESHOLD`
+- `Stable`: otherwise
+
+## Current MVP Status
+
+The current pipeline is working end-to-end with:
+
+- real Polymarket price history
+- sample/fake sentiment posts for pipeline validation
+- market feature engineering
+- sentiment feature engineering
+- market + sentiment dataset creation
+- multiclass model comparison
+- Streamlit dashboard
+
+The sentiment data is still sample data. These are not real X/Twitter posts. X/Twitter API access is paid, so real data should be collected only after the pipeline is stable.
+
+## Repository Structure
+
+```text
+data/
+  raw/
+    polymarket_price_history.csv
+    text_posts_sample.csv
+  processed/
+    text_posts_with_sentiment.csv
+    sentiment_features_by_hour.csv
+    market_features.csv
+  final/
+    market_sentiment_dataset.csv
+dashboard/
+  app.py
+docs/
+  final_project_plan.md
+  final_report.md
+  week7_technical_plan.md
+results/
+  final_model_comparison.md
+src/
+  sentiment.py
+  build_combined_dataset.py
+  build_market_features.py
+  build_market_sentiment_dataset.py
+  train_combined_model.py
+  collect_polymarket.py
+  collect_price_history.py
+```
+
+## Install Requirements
+
+```bash
+pip install -r requirements.txt
+```
+
+If Streamlit is not installed:
+
+```bash
+pip install streamlit
+```
+
+## Run Polymarket Collection
+
+Use the existing Polymarket collection scripts:
+
+```bash
+python src/collect_polymarket.py
+python src/collect_price_history.py
+```
+
+These scripts create or update:
+
+```text
+data/raw/polymarket_price_history.csv
+```
+
+## Run the Final Pipeline
+
+Run the full current pipeline in this order:
 
 ```bash
 python src/sentiment.py
@@ -248,7 +129,7 @@ python src/build_market_sentiment_dataset.py
 python src/train_combined_model.py
 ```
 
-Expected output files:
+Expected outputs:
 
 ```text
 data/processed/text_posts_with_sentiment.csv
@@ -258,14 +139,102 @@ data/final/market_sentiment_dataset.csv
 results/final_model_comparison.md
 ```
 
-## Run the Final Multiclass Pipeline
+## Run the Dashboard
 
 ```bash
-python src/sentiment.py
-python src/build_combined_dataset.py
-python src/build_market_features.py
-python src/build_market_sentiment_dataset.py
-python src/train_combined_model.py
+streamlit run dashboard/app.py
 ```
 
-This creates multiclass Up / Down / Stable labels from future Polymarket price movements and compares Market-only models with Market + Sentiment models.
+The dashboard shows:
+
+- Netanyahu price over time
+- Bennett price over time
+- price gap over time
+- Up / Down / Stable class distribution by horizon
+- final model comparison metrics
+- sentiment summary
+- sample sentiment rows
+
+The dashboard checks file existence before loading data, so it should not crash if an output is missing.
+
+## Sentiment Layer
+
+The sentiment layer is implemented in:
+
+```text
+src/sentiment.py
+```
+
+It currently supports:
+
+- text cleaning
+- rule-based sentiment score
+- sentiment label: positive / negative / neutral
+- political entity detection
+- party and bloc detection
+- political topic detection
+- strong Israeli political phrase detection
+- target sentiment toward the main mentioned entity
+- intensity score
+
+The Israeli political lexicon includes figures, parties, blocs, slogans, and context terms related to Israeli political discourse. Context terms such as right/left, settlers, religious/secular, Arabs, Hamas, Palestinians, and Judea and Samaria are not automatically treated as positive or negative.
+
+## Model Comparison
+
+Final comparison:
+
+- Dummy Baseline
+- Market-only Logistic Regression
+- Market-only Random Forest
+- Market + Sentiment Logistic Regression
+- Market + Sentiment Random Forest
+
+Evaluation uses a time-based train/test split, not a random split.
+
+Metrics:
+
+- Accuracy
+- Macro-F1
+- classification report
+- confusion matrix
+
+Results are saved to:
+
+```text
+results/final_model_comparison.md
+```
+
+## Current Results Summary
+
+Current class availability from `data/processed/market_features.csv`:
+
+```text
+1h:
+Stable 180
+Down    77
+Up      69
+
+2h:
+Stable 157
+Down    91
+Up      80
+
+24h:
+Down   137
+Up     127
+Stable 20
+```
+
+All three classes are available for 1h, 2h, and 24h.
+
+The 10-minute horizon is not available with the current data because the Polymarket price history is mostly hourly. The code supports the horizon structurally and skips it with a warning.
+
+## Important Interpretation Note
+
+X/Twitter data is used as predictive features, while the labels are derived from future Polymarket price movements. Therefore, collecting real X data improves the sentiment signal, but the class distribution of Up / Down / Stable depends on the amount, resolution and volatility of Polymarket price data.
+
+At this stage, Market + Sentiment results validate the pipeline structure but should not yet be treated as final evidence that sentiment improves prediction, because the sentiment input is still sample data.
+
+## Next Step
+
+The next step is to buy or access a limited amount of real X/Twitter data, save it using the same schema as `data/raw/text_posts_sample.csv`, rerun the pipeline, and compare Market-only vs Market + Sentiment performance again.

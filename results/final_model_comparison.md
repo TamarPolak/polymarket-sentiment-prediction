@@ -323,16 +323,16 @@ Class distribution:
 | class | count |
 |---|---:|
 | Up | 80 |
-| Down | 91 |
-| Stable | 157 |
+| Down | 92 |
+| Stable | 156 |
 
 Train rows: 246
 Test rows: 82
 
 ### Dummy Baseline
 
-- Accuracy: 0.5122
-- Macro-F1: 0.2258
+- Accuracy: 0.5000
+- Macro-F1: 0.2222
 
 Classification report:
 
@@ -340,12 +340,12 @@ Classification report:
               precision    recall  f1-score   support
 
           Up       0.00      0.00      0.00        23
-        Down       0.00      0.00      0.00        17
-      Stable       0.51      1.00      0.68        42
+        Down       0.00      0.00      0.00        18
+      Stable       0.50      1.00      0.67        41
 
-    accuracy                           0.51        82
-   macro avg       0.17      0.33      0.23        82
-weighted avg       0.26      0.51      0.35        82
+    accuracy                           0.50        82
+   macro avg       0.17      0.33      0.22        82
+weighted avg       0.25      0.50      0.33        82
 
 ```
 
@@ -354,13 +354,13 @@ Confusion matrix rows=true, columns=predicted:
 | true\predicted | Up | Down | Stable |
 |---|---:|---:|---:|
 | Up | 0 | 0 | 23 |
-| Down | 0 | 0 | 17 |
-| Stable | 0 | 0 | 42 |
+| Down | 0 | 0 | 18 |
+| Stable | 0 | 0 | 41 |
 
 ### Market-only Logistic Regression
 
-- Accuracy: 0.5000
-- Macro-F1: 0.4729
+- Accuracy: 0.5122
+- Macro-F1: 0.4878
 
 Classification report:
 
@@ -368,12 +368,12 @@ Classification report:
               precision    recall  f1-score   support
 
           Up       0.44      0.35      0.39        23
-        Down       0.39      0.53      0.45        17
-      Stable       0.59      0.57      0.58        42
+        Down       0.43      0.56      0.49        18
+      Stable       0.59      0.59      0.59        41
 
-    accuracy                           0.50        82
-   macro avg       0.47      0.48      0.47        82
-weighted avg       0.51      0.50      0.50        82
+    accuracy                           0.51        82
+   macro avg       0.49      0.50      0.49        82
+weighted avg       0.51      0.51      0.51        82
 
 ```
 
@@ -382,13 +382,13 @@ Confusion matrix rows=true, columns=predicted:
 | true\predicted | Up | Down | Stable |
 |---|---:|---:|---:|
 | Up | 8 | 4 | 11 |
-| Down | 2 | 9 | 6 |
-| Stable | 8 | 10 | 24 |
+| Down | 2 | 10 | 6 |
+| Stable | 8 | 9 | 24 |
 
 ### Market-only Random Forest
 
-- Accuracy: 0.4756
-- Macro-F1: 0.4471
+- Accuracy: 0.4878
+- Macro-F1: 0.4689
 
 Classification report:
 
@@ -396,12 +396,12 @@ Classification report:
               precision    recall  f1-score   support
 
           Up       0.35      0.52      0.42        23
-        Down       0.50      0.29      0.37        17
-      Stable       0.58      0.52      0.55        42
+        Down       0.60      0.33      0.43        18
+      Stable       0.58      0.54      0.56        41
 
-    accuracy                           0.48        82
-   macro avg       0.48      0.45      0.45        82
-weighted avg       0.50      0.48      0.48        82
+    accuracy                           0.49        82
+   macro avg       0.51      0.46      0.47        82
+weighted avg       0.52      0.49      0.49        82
 
 ```
 
@@ -410,13 +410,13 @@ Confusion matrix rows=true, columns=predicted:
 | true\predicted | Up | Down | Stable |
 |---|---:|---:|---:|
 | Up | 12 | 1 | 10 |
-| Down | 6 | 5 | 6 |
-| Stable | 16 | 4 | 22 |
+| Down | 6 | 6 | 6 |
+| Stable | 16 | 3 | 22 |
 
 ### Market + Sentiment Logistic Regression
 
-- Accuracy: 0.5000
-- Macro-F1: 0.4729
+- Accuracy: 0.5122
+- Macro-F1: 0.4878
 
 Classification report:
 
@@ -424,12 +424,12 @@ Classification report:
               precision    recall  f1-score   support
 
           Up       0.44      0.35      0.39        23
-        Down       0.39      0.53      0.45        17
-      Stable       0.59      0.57      0.58        42
+        Down       0.43      0.56      0.49        18
+      Stable       0.59      0.59      0.59        41
 
-    accuracy                           0.50        82
-   macro avg       0.47      0.48      0.47        82
-weighted avg       0.51      0.50      0.50        82
+    accuracy                           0.51        82
+   macro avg       0.49      0.50      0.49        82
+weighted avg       0.51      0.51      0.51        82
 
 ```
 
@@ -438,13 +438,13 @@ Confusion matrix rows=true, columns=predicted:
 | true\predicted | Up | Down | Stable |
 |---|---:|---:|---:|
 | Up | 8 | 4 | 11 |
-| Down | 2 | 9 | 6 |
-| Stable | 8 | 10 | 24 |
+| Down | 2 | 10 | 6 |
+| Stable | 8 | 9 | 24 |
 
 ### Market + Sentiment Random Forest
 
-- Accuracy: 0.4634
-- Macro-F1: 0.4224
+- Accuracy: 0.4756
+- Macro-F1: 0.4451
 
 Classification report:
 
@@ -452,12 +452,12 @@ Classification report:
               precision    recall  f1-score   support
 
           Up       0.35      0.52      0.42        23
-        Down       0.40      0.24      0.30        17
-      Stable       0.58      0.52      0.55        42
+        Down       0.50      0.28      0.36        18
+      Stable       0.58      0.54      0.56        41
 
-    accuracy                           0.46        82
-   macro avg       0.44      0.43      0.42        82
-weighted avg       0.48      0.46      0.46        82
+    accuracy                           0.48        82
+   macro avg       0.48      0.45      0.45        82
+weighted avg       0.50      0.48      0.47        82
 
 ```
 
@@ -466,5 +466,5 @@ Confusion matrix rows=true, columns=predicted:
 | true\predicted | Up | Down | Stable |
 |---|---:|---:|---:|
 | Up | 12 | 1 | 10 |
-| Down | 7 | 4 | 6 |
-| Stable | 15 | 5 | 22 |
+| Down | 7 | 5 | 6 |
+| Stable | 15 | 4 | 22 |
