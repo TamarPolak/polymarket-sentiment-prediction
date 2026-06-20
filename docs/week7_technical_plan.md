@@ -119,3 +119,28 @@ The initial goal is approximately 1,000 public posts related to Netanyahu, Benne
 - Replace the sample file with a real X dataset in the same schema.
 - Merge hourly sentiment features with Polymarket market features.
 - Compare Market-only model performance against Market + Sentiment model performance.
+
+## Sentiment Layer Improvement
+
+The sentiment layer was improved to better match Israeli political discourse. The updated pipeline now includes:
+
+- Candidate and entity detection for Netanyahu/Bibi, Bennett, Lapid, Gantz, Ben Gvir, Smotrich, and a flexible dictionary for adding more figures.
+- Party and bloc detection for Likud, Yesh Atid, National Unity, Yisrael Beiteinu, Religious Zionism, Otzma Yehudit, Shas, United Torah Judaism, Raam, and left/right/center discourse.
+- Political topic detection for elections, leadership, government, protest, responsibility/blame, security, hostages, war, religion and state, judiciary, economy, coalition, corruption, Jewish-Arab relations, and left-right polarization.
+- Phrase-based Israeli political sentiment using strong phrases such as "אתה הראש אתה אשם", "רק ביבי", "רק לא ביבי", "מדינת הלכה", "בחירות עכשיו", "כישלון", and "בגידה".
+- An `intensity_score` that captures stronger political language and slogans.
+- A `target_sentiment` column that estimates whether the sentiment is aimed at the main mentioned political figure.
+
+Important: terms such as left/right, Arab/Jewish, religious/secular are treated as political topic or bloc indicators, not as positive or negative sentiment by themselves.
+
+## Updated Next Step
+
+The next step is to collect a limited number of real public X posts under a controlled paid API budget and apply this improved sentiment pipeline to real data. After that, the hourly sentiment features can be merged with Polymarket market features to compare Market-only vs Market + Sentiment models.
+
+## Israeli Political Lexicon Expansion
+
+The sentiment MVP now includes a broader Israeli political lexicon. The updated lexicon adds additional political figures such as Lieberman, Gantz, Lapid, Ben Gvir, Smotrich, Deri, and Eisenkot; additional parties such as Yisrael Beiteinu, Meretz, Labor, Raam, and Hadash-Taal; and additional ideological/context terms such as strong right, center-right, center-left, nationalist camp, democratic camp, liberal camp, settlements, settlers, residents, Judea and Samaria, West Bank, sovereignty, annexation, two-state solution, Palestinian state, terror, security, hostages, war, Gaza, Hamas, Iran, and Hezbollah.
+
+These terms are used as contextual political features. They are not automatically treated as positive or negative sentiment. For example, terms such as ימין, שמאל, מתנחלים, מתיישבים, יהודה ושומרון, איו"ש, ערבים, חרדים, דתיים, חילונים, חמאס, and פלסטינים are topic/context indicators only.
+
+Sentiment is affected only by words or phrases with a clearer evaluative meaning, such as מושחת, כישלון, מחדל, אלטרנטיבה, חזק, מתאים, לא מתאים, אשם, and הביתה. This keeps the MVP simple while avoiding a biased interpretation of political identity terms.

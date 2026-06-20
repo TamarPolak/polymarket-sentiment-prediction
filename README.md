@@ -153,3 +153,39 @@ The next experiment is to compare:
 - Market + Sentiment model.
 
 Before collecting real X data, the sentiment pipeline should be validated on the sample file. After that, a limited number of real public X posts can be collected under a controlled paid API budget and saved using the same schema.
+
+## Improved Sentiment Layer
+
+The sentiment pipeline was expanded to better match Israeli political discourse. It now adds these columns to `data/processed/text_posts_with_sentiment.csv`:
+
+```text
+mentioned_entities
+main_entity
+mentioned_parties
+political_bloc_terms
+political_topics
+matched_political_phrases
+target_sentiment
+intensity_score
+```
+
+The pipeline now supports:
+
+- Entity detection for Netanyahu/Bibi, Bennett, Lapid, Gantz, Ben Gvir, Smotrich, and future candidates through editable dictionaries.
+- Party and bloc detection for Israeli parties and political blocs.
+- Topic detection for elections, leadership, government, protest, responsibility/blame, security, hostages, war, religion and state, judiciary, economy, coalition, corruption, Jewish-Arab relations, and left-right polarization.
+- Strong Israeli political phrase detection, including phrases such as "אתה הראש אתה אשם", "רק ביבי", "רק לא ביבי", "מדינת הלכה", and "בחירות עכשיו".
+- `intensity_score` for stronger political language.
+- `target_sentiment` toward the main mentioned political figure.
+
+Political identity terms such as left/right, Arab/Jewish, religious/secular are treated as topic or bloc indicators only. They are not positive or negative by themselves.
+
+The next step is to collect real public X posts under a limited paid API budget, run this pipeline on real data, and then compare Market-only against Market + Sentiment model performance.
+
+## Israeli Political Lexicon Expansion
+
+The sentiment layer now includes a broader Israeli political lexicon for MVP testing. It detects additional entities, parties, blocs, ideological context terms, and political slogans, including Lieberman, Gantz, Lapid, Ben Gvir, Smotrich, Deri, Eisenkot, Yisrael Beiteinu, Meretz, Labor, Raam, Hadash-Taal, Judea and Samaria, איו"ש, settlers, settlements, sovereignty, annexation, hostages, Hamas, Iran, and Hezbollah.
+
+Important: political identity and context terms are not automatically positive or negative. Terms like ימין, שמאל, מתנחלים, מתיישבים, ערבים, חרדים, דתיים, חילונים, חמאס, and פלסטינים are treated as context/topic indicators only.
+
+Only clearly evaluative words and phrases affect sentiment, for example: מושחת, כישלון, מחדל, אלטרנטיבה, חזק, מתאים, לא מתאים, אשם, and הביתה.
