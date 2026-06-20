@@ -238,3 +238,76 @@ At this stage, Market + Sentiment results validate the pipeline structure but sh
 ## Next Step
 
 The next step is to buy or access a limited amount of real X/Twitter data, save it using the same schema as `data/raw/text_posts_sample.csv`, rerun the pipeline, and compare Market-only vs Market + Sentiment performance again.
+
+## Real X/Twitter Data Collection
+
+Real X/Twitter collection is implemented in:
+
+```text
+src/collect_x_data.py
+```
+
+The script uses the official X API Recent Search endpoint only. It does not use Full Archive Search and does not fetch user profile details.
+
+Safety defaults:
+
+```text
+DRY_RUN = True
+MAX_POSTS_TOTAL = 500
+MAX_POSTS_PER_QUERY = 100
+```
+
+The output path is:
+
+```text
+data/raw/x_posts_real_limited.csv
+```
+
+This file is intentionally under `data/raw/`, which is ignored by Git.
+
+### Set Bearer Token in PowerShell
+
+Do not hardcode the token in Python files. Set it only in your current PowerShell session:
+
+```powershell
+$env:X_BEARER_TOKEN="YOUR_BEARER_TOKEN_HERE"
+```
+
+To confirm that the variable exists without printing the token:
+
+```powershell
+if ($env:X_BEARER_TOKEN) { "X_BEARER_TOKEN is set" } else { "Missing token" }
+```
+
+Never commit API keys, Bearer Tokens, screenshots of tokens, or `.env` files.
+
+### Dry Run
+
+Before buying credits or making API calls, run:
+
+```bash
+python src/collect_x_data.py
+```
+
+With `DRY_RUN=True`, the script prints the collection plan, queries, and limits, then stops before making any API calls.
+
+### Real Collection
+
+After reviewing the plan and setting a strict X spending limit:
+
+1. Set `DRY_RUN = False` in `src/collect_x_data.py`.
+2. Keep `MAX_POSTS_TOTAL` limited, for example 500.
+3. Make sure X auto-recharge is off.
+4. Run:
+
+```bash
+python src/collect_x_data.py
+```
+
+The collector deduplicates by `post_id`, stops when `MAX_POSTS_TOTAL` is reached, and saves posts to:
+
+```text
+data/raw/x_posts_real_limited.csv
+```
+
+After collection, either copy/rename this file into the sentiment input path or update `src/sentiment.py` to read the real X file for the final run.
