@@ -1,4 +1,4 @@
-# Week 7 Technical Progress Plan
+﻿# Week 7 Technical Progress Plan
 
 ## Project Context
 
@@ -11,7 +11,7 @@ The current submission focuses on creating a working MVP around the existing mar
 - Polymarket market data collection was implemented.
 - Price history collection was implemented.
 - Market feature engineering was implemented.
-- Binary and multiclass baseline ML models were implemented.
+- Multiclass Up / Down / Stable is now the final target for the project.
 - Baseline model results were generated.
 - A sentiment MVP structure was added using a small sample text dataset.
 - A rule-based sentiment pipeline was added.
@@ -25,7 +25,7 @@ Tamar completed the Polymarket side of the project:
 - Polymarket API connection.
 - Price history collection.
 - Market feature engineering.
-- Binary and multiclass ML baseline models.
+- Multiclass Up / Down / Stable modeling is now the final project direction.
 - Baseline results.
 
 These files should remain the stable market baseline and should not be rewritten unless a later integration step requires a small compatibility change.
@@ -75,7 +75,7 @@ The current MVP is:
 
 ## Initial Results Summary
 
-The baseline results currently come from Tamar's market-only models. These results are treated as the reference point.
+The baseline results currently come from Tamar's market-only binary models. These results are treated as the reference point.
 
 The sentiment pipeline does not yet produce predictive model results. Its current role is to create usable sentiment features so that the next experiment can test whether adding public text sentiment improves the market-only baseline.
 
@@ -144,3 +144,39 @@ The sentiment MVP now includes a broader Israeli political lexicon. The updated 
 These terms are used as contextual political features. They are not automatically treated as positive or negative sentiment. For example, terms such as ימין, שמאל, מתנחלים, מתיישבים, יהודה ושומרון, איו"ש, ערבים, חרדים, דתיים, חילונים, חמאס, and פלסטינים are topic/context indicators only.
 
 Sentiment is affected only by words or phrases with a clearer evaluative meaning, such as מושחת, כישלון, מחדל, אלטרנטיבה, חזק, מתאים, לא מתאים, אשם, and הביתה. This keeps the MVP simple while avoiding a biased interpretation of political identity terms.
+
+## Final Project Scope Update
+
+The final project scope has changed from binary Move / Stable back to multiclass direction prediction. The final target is now:
+
+```text
+target_multiclass = Up / Down / Stable
+```
+
+The goal is to predict the direction of future price movement for Benjamin Netanyahu and Naftali Bennett on Polymarket.
+
+For each candidate, timestamp and horizon:
+
+```text
+price_change = future_price - current_price
+MOVEMENT_THRESHOLD = 0.001
+```
+
+Labels:
+
+- `Up`: `price_change > MOVEMENT_THRESHOLD`
+- `Down`: `price_change < -MOVEMENT_THRESHOLD`
+- `Stable`: otherwise
+
+The final horizons are 10 minutes, 1 hour, 2 hours, and 24 hours. If 10-minute Polymarket data is not available with the current price resolution, the code supports the horizon structurally but skips it gracefully with a warning.
+
+The final model comparison is:
+
+- Dummy Baseline
+- Market-only Logistic Regression
+- Market-only Random Forest
+- Market + Sentiment Logistic Regression
+- Market + Sentiment Random Forest
+
+X/Twitter data is used as predictive features, while the labels are derived from future Polymarket price movements. Therefore, collecting real X data improves the sentiment signal, but the class distribution of Up / Down / Stable depends on the amount, resolution and volatility of Polymarket price data.
+

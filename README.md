@@ -8,7 +8,7 @@ Can sentiment and discussion volume from X/Twitter improve prediction of Benjami
 
 ## Project Goal
 
-The goal is to compare market-only prediction with a future Market + Sentiment model. The project starts with Polymarket price history and engineered market features, then adds public discussion signals related to Netanyahu, Bennett, Bibi, Naftali Bennett, Israeli election, בחירות בישראל, נתניהו, and בנט.
+The goal is to predict the direction of future Polymarket candidate price movement using market features and sentiment features. The project starts with Polymarket price history and engineered market features, then adds public discussion signals related to Netanyahu, Bennett, Bibi, Naftali Bennett, Israeli election, בחירות בישראל, נתניהו, and בנט.
 
 ## Current MVP
 
@@ -71,13 +71,13 @@ python src/collect_price_history.py
 
 Do not change Tamar's collection scripts unless a later integration step requires a small compatibility update.
 
-## Run the Binary Model
+## Run the Legacy Binary Model
 
 ```bash
 python src/train_binary_model.py
 ```
 
-This is the current Market-only reference model.
+This is a legacy market-only reference model. The final project comparison uses the multiclass pipeline below.
 
 ## Run the Sentiment Pipeline
 
@@ -141,7 +141,7 @@ It can show:
 
 ## Preliminary Results
 
-The current baseline results are the Market-only results from Tamar's binary and multiclass models.
+The final project target is multiclass classification: Up / Down / Stable. Labels are derived from future Polymarket price movement for each candidate and horizon.
 
 The sentiment pipeline currently validates the data flow only. It does not yet prove that sentiment improves prediction because the current sentiment input is sample data, not real X data.
 
@@ -149,8 +149,11 @@ The sentiment pipeline currently validates the data flow only. It does not yet p
 
 The next experiment is to compare:
 
-- Market-only model.
-- Market + Sentiment model.
+- Dummy Baseline.
+- Market-only Logistic Regression.
+- Market-only Random Forest.
+- Market + Sentiment Logistic Regression.
+- Market + Sentiment Random Forest.
 
 Before collecting real X data, the sentiment pipeline should be validated on the sample file. After that, a limited number of real public X posts can be collected under a controlled paid API budget and saved using the same schema.
 
@@ -189,3 +192,80 @@ The sentiment layer now includes a broader Israeli political lexicon for MVP tes
 Important: political identity and context terms are not automatically positive or negative. Terms like ימין, שמאל, מתנחלים, מתיישבים, ערבים, חרדים, דתיים, חילונים, חמאס, and פלסטינים are treated as context/topic indicators only.
 
 Only clearly evaluative words and phrases affect sentiment, for example: מושחת, כישלון, מחדל, אלטרנטיבה, חזק, מתאים, לא מתאים, אשם, and הביתה.
+
+## Final Modeling Scope
+
+The final project uses only the multiclass target:
+
+```text
+target_multiclass = Up / Down / Stable
+```
+
+The goal is to predict the direction of future price movement for the leading Polymarket candidates:
+
+- Benjamin Netanyahu
+- Naftali Bennett
+
+For each candidate, timestamp, and horizon:
+
+```text
+price_change = future_price - current_price
+MOVEMENT_THRESHOLD = 0.001
+```
+
+Target labels:
+
+- `Up`: `price_change > MOVEMENT_THRESHOLD`
+- `Down`: `price_change < -MOVEMENT_THRESHOLD`
+- `Stable`: otherwise
+
+Prediction horizons:
+
+- 10 minutes
+- 1 hour
+- 2 hours
+- 24 hours
+
+If 10-minute Polymarket data is not available with the current price resolution, the code keeps the horizon in the structure but skips it gracefully with a clear warning.
+
+Final model comparison:
+
+- Dummy Baseline
+- Market-only Logistic Regression
+- Market-only Random Forest
+- Market + Sentiment Logistic Regression
+- Market + Sentiment Random Forest
+
+X/Twitter data is used as predictive features, while the labels are derived from future Polymarket price movements. Therefore, collecting real X data improves the sentiment signal, but the class distribution of Up / Down / Stable depends on the amount, resolution and volatility of Polymarket price data.
+
+## Final Pipeline Commands
+
+```bash
+python src/sentiment.py
+python src/build_combined_dataset.py
+python src/build_market_features.py
+python src/build_market_sentiment_dataset.py
+python src/train_combined_model.py
+```
+
+Expected output files:
+
+```text
+data/processed/text_posts_with_sentiment.csv
+data/processed/sentiment_features_by_hour.csv
+data/processed/market_features.csv
+data/final/market_sentiment_dataset.csv
+results/final_model_comparison.md
+```
+
+## Run the Final Multiclass Pipeline
+
+```bash
+python src/sentiment.py
+python src/build_combined_dataset.py
+python src/build_market_features.py
+python src/build_market_sentiment_dataset.py
+python src/train_combined_model.py
+```
+
+This creates multiclass Up / Down / Stable labels from future Polymarket price movements and compares Market-only models with Market + Sentiment models.
