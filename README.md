@@ -366,3 +366,82 @@ After collection, either copy/rename this file into the sentiment input path or 
 
 
 
+
+## Continue X Collection to 1000 Posts
+
+The X collector supports append/resume mode and will not overwrite the existing raw X file when `APPEND_EXISTING=True`.
+
+Current output file:
+
+```text
+data/raw/x_posts_real_limited.csv
+```
+
+This file is ignored by Git and should not be committed.
+
+### Hebrew Test Collection
+
+Default safe test settings:
+
+```python
+DRY_RUN = True
+APPEND_EXISTING = True
+TEST_ONE_QUERY_ONLY = True
+TEST_QUERY_GROUP_NAME = "netanyahu_hebrew_broad"
+TEST_MAX_POSTS_TOTAL = 30
+TEST_MAX_POSTS_PER_QUERY = 30
+USE_HEBREW_LANGUAGE_FILTER = False
+```
+
+Run dry run first:
+
+```bash
+python src/collect_x_data.py
+```
+
+To run a small real Hebrew test, set:
+
+```python
+DRY_RUN = False
+```
+
+Then run:
+
+```bash
+python src/collect_x_data.py
+```
+
+The script loads existing posts first, deduplicates by `post_id`, and appends only new unique posts.
+
+### Append Mode and Target 1000
+
+For full collection until 1000 total unique posts, use:
+
+```python
+DRY_RUN = False
+TEST_ONE_QUERY_ONLY = False
+TEST_QUERY_GROUP_NAME = None
+APPEND_EXISTING = True
+TARGET_TOTAL_UNIQUE_POSTS = 1000
+MAX_POSTS_TOTAL = 1000
+MAX_POSTS_PER_QUERY = 200
+USE_HEBREW_LANGUAGE_FILTER = False
+```
+
+The script will:
+
+- load existing `data/raw/x_posts_real_limited.csv`
+- count existing unique posts
+- estimate how many additional posts are needed
+- collect Hebrew broad queries first
+- keep existing rows
+- deduplicate by `post_id`
+- stop once total unique posts reaches 1000
+
+Keep X auto-recharge off and keep a strict spending limit. After collection, set:
+
+```python
+DRY_RUN = True
+```
+
+This helps prevent accidental extra API calls.
