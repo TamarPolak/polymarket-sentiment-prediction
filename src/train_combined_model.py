@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 import pandas as pd
@@ -12,11 +13,11 @@ from sklearn.preprocessing import StandardScaler
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-INPUT_PATH = PROJECT_ROOT / "data" / "final" / "market_sentiment_dataset.csv"
-RESULTS_PATH = PROJECT_ROOT / "results" / "final_model_comparison.md"
+DEFAULT_INPUT_PATH = PROJECT_ROOT / "data" / "final" / "market_sentiment_dataset.csv"
+DEFAULT_RESULTS_PATH = PROJECT_ROOT / "results" / "final_model_comparison.md"
 TARGET_COLUMN = "target_multiclass"
 EXPECTED_CLASSES = ["Up", "Down", "Stable"]
-EXPECTED_HORIZONS = ["10m", "1h", "2h", "24h"]
+EXPECTED_HORIZONS = ["1h", "2h", "24h"]
 
 MARKET_FEATURES = [
     "candidate_price",
@@ -116,13 +117,39 @@ def add_model_results(lines: list[str], model_name: str, model, X_train, y_train
     lines.append("")
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Train final multiclass market and market+sentiment models.")
+    parser.add_argument("--input", default=str(DEFAULT_INPUT_PATH), help="Final dataset CSV path.")
+    parser.add_argument("--output", default=str(DEFAULT_RESULTS_PATH), help="Output markdown results path.")
+    return parser.parse_args()
+
+
+def resolve_path(path_value: str) -> Path:
+    path = Path(path_value)
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    return path
+
+
+def display_path(path: Path) -> str:
+    return path.relative_to(PROJECT_ROOT).as_posix() if path.is_relative_to(PROJECT_ROOT) else str(path)
+
+
 def main() -> None:
-    if not INPUT_PATH.exists():
+    args = parse_args()
+    input_path = resolve_path(args.input)
+    output_path = resolve_path(args.output)
+
+    print(f"Input path: {display_path(input_path)}")
+    print(f"Output path: {display_path(output_path)}")
+    print(f"Target used: {TARGET_COLUMN} = Up / Down / Stable")
+
+    if not input_path.exists():
         raise FileNotFoundError(
-            f"Final dataset not found: {INPUT_PATH}. Run python src/build_market_sentiment_dataset.py first."
+            f"Final dataset not found: {input_path}. Run python src/build_market_sentiment_dataset.py first."
         )
 
-    df = pd.read_csv(INPUT_PATH)
+    df = pd.read_csv(input_path)
     df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
     df = df.dropna(subset=["timestamp", TARGET_COLUMN, "horizon"]).sort_values("timestamp").copy()
 
@@ -147,7 +174,10 @@ def main() -> None:
         )
         lines.append("")
 
-    for horizon in sorted(df["horizon"].dropna().unique()):
+    horizons_evaluated = sorted(df["horizon"].dropna().unique())
+    print(f"Horizons evaluated: {', '.join(horizons_evaluated)}")
+
+    for horizon in horizons_evaluated:
         horizon_df = df[df["horizon"] == horizon].sort_values("timestamp").copy()
         class_counts = horizon_df[TARGET_COLUMN].value_counts().reindex(EXPECTED_CLASSES, fill_value=0)
 
@@ -227,12 +257,13 @@ def main() -> None:
                 y_test,
             )
 
-    RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    RESULTS_PATH.write_text("\n".join(lines), encoding="utf-8")
-    print(f"Saved final model comparison to {RESULTS_PATH.relative_to(PROJECT_ROOT).as_posix()}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text("\n".join(lines), encoding="utf-8")
+    print(f"Saved final model comparison to {display_path(output_path)}")
 
 
 if __name__ == "__main__":
     main()
+
 
 
