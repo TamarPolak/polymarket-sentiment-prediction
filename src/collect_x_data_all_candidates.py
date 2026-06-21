@@ -8,6 +8,7 @@ enabled later by explicitly changing DRY_RUN to False after reviewing the plan.
 from __future__ import annotations
 
 import os
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -18,10 +19,18 @@ import requests
 from candidates import get_active_candidates
 
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
+
 X_RECENT_SEARCH_URL = "https://api.x.com/2/tweets/search/recent"
 OUTPUT_PATH = Path("data/raw/x_posts_all_candidates.csv")
 
 DRY_RUN = True
+TEST_MODE = True
+TEST_CANDIDATE_NAME = "Gadi Eisenkot"
+TEST_MAX_POSTS_TOTAL = 50
+TEST_MAX_POSTS_PER_QUERY = 25
 APPEND_EXISTING = True
 TARGET_TOTAL_UNIQUE_POSTS = 3500
 MAX_POSTS_TOTAL = 3500
@@ -152,19 +161,47 @@ def load_existing_posts() -> pd.DataFrame:
     return existing.drop_duplicates(subset=["post_id"], keep="last")
 
 
+def get_effective_limits() -> tuple[int, int]:
+    if TEST_MODE:
+        return TEST_MAX_POSTS_TOTAL, TEST_MAX_POSTS_PER_QUERY
+    return MAX_POSTS_TOTAL, MAX_POSTS_PER_QUERY
+
+
+def apply_test_mode_filter(queries: list[dict[str, str]]) -> list[dict[str, str]]:
+    if not TEST_MODE:
+        return queries
+
+    test_queries = [query for query in queries if query["candidate"] == TEST_CANDIDATE_NAME]
+    if not test_queries:
+        raise RuntimeError(f"TEST_CANDIDATE_NAME was not found in active candidates: {TEST_CANDIDATE_NAME}")
+    return test_queries
+
+
+def print_usage_instructions() -> None:
+    print("Run instructions:")
+    print("1. Dry run: python src/collect_x_data_all_candidates.py")
+    print("2. Real test: manually set DRY_RUN=False, keep TEST_MODE=True, then run python src/collect_x_data_all_candidates.py")
+    print("3. Immediately set DRY_RUN=True again after the real test.")
+
+
 def print_collection_plan(queries: list[dict[str, str]], existing_count: int) -> int:
+    effective_max_posts_total, effective_max_posts_per_query = get_effective_limits()
     remaining_to_target = max(TARGET_TOTAL_UNIQUE_POSTS - existing_count, 0)
-    max_new_posts = min(MAX_POSTS_TOTAL, remaining_to_target)
+    max_new_posts = min(effective_max_posts_total, remaining_to_target)
     estimated_cost = max_new_posts * ESTIMATED_COST_PER_POST_USD
 
     print("All-candidates X/Twitter collection plan")
     print(f"DRY_RUN: {DRY_RUN}")
     print(f"Output path: {OUTPUT_PATH}")
     print(f"Append existing: {APPEND_EXISTING}")
+    print(f"TEST_MODE: {TEST_MODE}")
+    print(f"Test candidate name: {TEST_CANDIDATE_NAME if TEST_MODE else 'N/A'}")
+    print(f"Max posts in test: {TEST_MAX_POSTS_TOTAL if TEST_MODE else 'N/A'}")
+    print(f"Estimated max cost for test: ${(TEST_MAX_POSTS_TOTAL * ESTIMATED_COST_PER_POST_USD):.2f}")
     print(f"Existing unique posts: {existing_count}")
     print(f"Target total unique posts: {TARGET_TOTAL_UNIQUE_POSTS}")
-    print(f"Max posts total this run: {MAX_POSTS_TOTAL}")
-    print(f"Max posts per query: {MAX_POSTS_PER_QUERY}")
+    print(f"Max posts total this run: {effective_max_posts_total}")
+    print(f"Max posts per query: {effective_max_posts_per_query}")
     print(f"Max posts per candidate: {MAX_POSTS_PER_CANDIDATE}")
     print(f"Use Hebrew language filter: {USE_HEBREW_LANGUAGE_FILTER}")
     print(f"Active candidates: {len(get_active_candidates())}")
@@ -176,6 +213,7 @@ def print_collection_plan(queries: list[dict[str, str]], existing_count: int) ->
     print("Queries:")
     for query in queries:
         print(f"- {query['query_group']} [{query['candidate']}]: {query['query']}")
+    print_usage_instructions()
 
     return max_new_posts
 
@@ -243,7 +281,8 @@ def collect_posts(queries: list[dict[str, str]], existing: pd.DataFrame, max_new
 
         remaining_total = max_new_posts - len(new_rows)
         remaining_candidate = MAX_POSTS_PER_CANDIDATE - candidate_counts.get(candidate, 0)
-        request_limit = min(MAX_POSTS_PER_QUERY, remaining_total, remaining_candidate)
+        _, effective_max_posts_per_query = get_effective_limits()
+        request_limit = min(effective_max_posts_per_query, remaining_total, remaining_candidate)
         if request_limit <= 0:
             continue
 
@@ -280,7 +319,7 @@ def collect_posts(queries: list[dict[str, str]], existing: pd.DataFrame, max_new
 
 
 def main() -> None:
-    queries = build_candidate_queries()
+    queries = apply_test_mode_filter(build_candidate_queries())
     existing = load_existing_posts()
     max_new_posts = print_collection_plan(queries, len(existing))
 
@@ -298,3 +337,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
