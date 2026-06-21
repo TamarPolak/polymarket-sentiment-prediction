@@ -27,7 +27,7 @@ X_RECENT_SEARCH_URL = "https://api.x.com/2/tweets/search/recent"
 OUTPUT_PATH = Path("data/raw/x_posts_all_candidates.csv")
 
 DRY_RUN = True
-TEST_MODE = True
+TEST_MODE = False
 TEST_CANDIDATE_NAME = "Gadi Eisenkot"
 TEST_MAX_POSTS_TOTAL = 50
 TEST_MAX_POSTS_PER_QUERY = 25

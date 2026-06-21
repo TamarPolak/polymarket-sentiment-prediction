@@ -5,34 +5,83 @@ import re
 
 import pandas as pd
 import streamlit as st
+from sklearn.ensemble import RandomForestClassifier
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-PRICE_HISTORY_PATH = PROJECT_ROOT / "data" / "raw" / "polymarket_price_history.csv"
+FINAL_DATASET_PATH = PROJECT_ROOT / "data" / "final" / "market_sentiment_dataset_all_candidates.csv"
+PRICE_HISTORY_PATH = PROJECT_ROOT / "data" / "raw" / "polymarket_price_history_all_candidates.csv"
+TOPIC_POSTS_PATH = PROJECT_ROOT / "data" / "processed" / "x_posts_with_sentiment_topics_all_candidates.csv"
+RESULTS_PATH = PROJECT_ROOT / "results" / "final_model_comparison_all_candidates.md"
 
-X_POSTS_RAW_PATH = PROJECT_ROOT / "data" / "raw" / "x_posts_real_limited.csv"
-SENTIMENT_POSTS_PATH = PROJECT_ROOT / "data" / "processed" / "x_posts_with_sentiment.csv"
-SENTIMENT_HOURLY_PATH = PROJECT_ROOT / "data" / "processed" / "x_sentiment_features_by_hour.csv"
+HORIZONS = ["1h", "2h", "24h"]
+TARGET_CLASSES = ["Up", "Down", "Stable"]
+TOPICS = [
+    "security_war",
+    "hostages_gaza",
+    "economy_cost_of_living",
+    "religion_state",
+    "internal_security_crime",
+    "judicial_reform_governance",
+    "elections_polls",
+    "coalition_opposition_government",
+    "foreign_relations",
+    "corruption_public_trust",
+]
+TOPIC_LABELS = {
+    "security_war": "Security/war",
+    "hostages_gaza": "Hostages/Gaza",
+    "economy_cost_of_living": "Economy",
+    "religion_state": "Religion/state",
+    "internal_security_crime": "Internal security",
+    "judicial_reform_governance": "Judiciary",
+    "elections_polls": "Elections/polls",
+    "coalition_opposition_government": "Coalition/gov",
+    "foreign_relations": "Foreign relations",
+    "corruption_public_trust": "Public trust",
+}
+MARKET_FEATURES = [
+    "candidate_price",
+    "candidate_change_1h",
+    "candidate_change_2h",
+    "candidate_change_24h",
+    "market_leader_price",
+    "gap_to_market_leader",
+    "candidate_rank",
+    "price_share",
+    "top_2_gap",
+    "market_num_candidates",
+]
+SENTIMENT_FEATURES = [
+    "avg_sentiment_score",
+    "median_sentiment_score",
+    "std_sentiment_score",
+    "var_sentiment_score",
+    "total_sentiment_score",
+    "num_posts",
+    "num_positive_posts",
+    "num_negative_posts",
+    "num_neutral_posts",
+    "total_likes",
+    "total_reposts",
+    "total_comments",
+    "engagement_weighted_sentiment",
+    "rolling_24h_sentiment_mean",
+    "rolling_24h_post_count",
+    "rolling_48h_sentiment_mean",
+    "rolling_48h_post_count",
+]
 
-MARKET_FEATURES_PATH = PROJECT_ROOT / "data" / "processed" / "market_features.csv"
-FINAL_DATASET_PATH = PROJECT_ROOT / "data" / "final" / "market_sentiment_dataset_real_x.csv"
-FINAL_RESULTS_PATH = PROJECT_ROOT / "results" / "final_model_comparison_real_x.md"
-
-
-st.set_page_config(
-    page_title="Polymarket Sentiment Dashboard",
-    page_icon="📈",
-    layout="wide",
-)
-
-st.title("📈 Polymarket Sentiment Prediction")
+st.set_page_config(page_title="All-Candidates Polymarket Sentiment", layout="wide")
+st.title("All-Candidates Polymarket + X Sentiment Dashboard")
 st.caption(
-    "Final target: Up / Down / Stable price movement for Benjamin Netanyahu and Naftali Bennett. "
-    "Current horizons: 1h, 2h, 24h."
+    "The model predicts candidate price movement on Polymarket, not the final election winner directly. "
+    "X/Twitter data is used as explanatory and predictive features."
 )
 
 
+@st.cache_data(show_spinner=False)
 def read_csv_if_exists(path: Path) -> pd.DataFrame | None:
     if not path.exists():
         return None
@@ -43,6 +92,7 @@ def read_csv_if_exists(path: Path) -> pd.DataFrame | None:
         return None
 
 
+@st.cache_data(show_spinner=False)
 def read_text_if_exists(path: Path) -> str | None:
     if not path.exists():
         return None
@@ -53,186 +103,64 @@ def read_text_if_exists(path: Path) -> str | None:
         return None
 
 
-def prepare_price_history(df: pd.DataFrame) -> pd.DataFrame:
+def prepare_timestamp(df: pd.DataFrame, column: str = "timestamp") -> pd.DataFrame:
     df = df.copy()
-    df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
-    df["price"] = pd.to_numeric(df["price"], errors="coerce")
-    df = df.dropna(subset=["timestamp", "candidate", "price"])
-    df["timestamp"] = df["timestamp"].dt.floor("h")
-
-    return (
-        df.groupby(["timestamp", "candidate"], as_index=False)
-        .agg(price=("price", "mean"))
-        .sort_values("timestamp")
-    )
+    df[column] = pd.to_datetime(df[column], errors="coerce", utc=True)
+    return df.dropna(subset=[column])
 
 
-def show_x_collection_summary() -> None:
-    st.header("1. Real X/Twitter Data Collection")
-
-    df = read_csv_if_exists(X_POSTS_RAW_PATH)
-    if df is None:
-        st.info("Real X dataset was not found locally. Expected: data/raw/x_posts_real_limited.csv")
-        return
-
-    cols = st.columns(4)
-
-    cols[0].metric("Real X posts", f"{len(df):,}")
-
-    if "post_id" in df.columns:
-        cols[1].metric("Unique posts", f"{df['post_id'].nunique():,}")
-    else:
-        cols[1].metric("Unique posts", f"{len(df):,}")
-
-    if "candidate" in df.columns:
-        cols[2].metric("Candidates", df["candidate"].nunique())
-    else:
-        cols[2].metric("Candidates", "2")
-
-    if "lang" in df.columns:
-        cols[3].metric("Languages", df["lang"].nunique())
-    else:
-        cols[3].metric("Languages", "Hebrew + English")
-
-    st.write(
-        """
-The project uses real public X/Twitter posts collected with the X Recent Search API.
-The collection was performed under a limited prepaid budget and includes Hebrew and English posts.
-"""
-    )
-
-    if "query_group" in df.columns:
-        st.subheader("Query Group Distribution")
-
-        query_counts = df["query_group"].value_counts().reset_index()
-        query_counts.columns = ["query_group", "count"]
-
-        st.dataframe(query_counts, use_container_width=True, hide_index=True)
-        st.bar_chart(query_counts.set_index("query_group"))
-
-    if "lang" in df.columns:
-        st.subheader("Language Distribution")
-
-        lang_counts = df["lang"].fillna("unknown").value_counts().reset_index()
-        lang_counts.columns = ["language", "count"]
-
-        st.dataframe(lang_counts, use_container_width=True, hide_index=True)
-        st.bar_chart(lang_counts.set_index("language"))
-
-    available_cols = [
-        "timestamp",
-        "candidate",
-        "query_group",
-        "lang",
-        "likes",
-        "reposts",
-        "comments",
-        "text",
-    ]
-    sample_cols = [c for c in available_cols if c in df.columns]
-
-    st.subheader("Sample Real X Posts")
-    st.dataframe(df[sample_cols].head(20), use_container_width=True)
+def numeric(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    df = df.copy()
+    for column in columns:
+        if column in df.columns:
+            df[column] = pd.to_numeric(df[column], errors="coerce").fillna(0)
+    return df
 
 
-def show_market_prices() -> None:
-    st.header("2. Polymarket Market Prices")
-
-    df = read_csv_if_exists(PRICE_HISTORY_PATH)
-    if df is None:
-        st.info("Missing data/raw/polymarket_price_history.csv. Run the Polymarket collection step first.")
-        return
-
-    required = {"timestamp", "candidate", "price"}
-    if not required.issubset(df.columns):
-        st.warning("Price history exists, but it does not contain timestamp, candidate, and price columns.")
-        st.dataframe(df.head(20), use_container_width=True)
-        return
-
-    prices = prepare_price_history(df)
-    wide = prices.pivot_table(
-        index="timestamp",
-        columns="candidate",
-        values="price",
-        aggfunc="mean",
-    ).sort_index()
-
-    cols = st.columns(3)
-
-    for index, candidate in enumerate(["Benjamin Netanyahu", "Naftali Bennett"]):
-        with cols[index]:
-            st.subheader(candidate)
-
-            if candidate in wide.columns:
-                st.line_chart(wide[candidate])
-                latest_price = wide[candidate].dropna().iloc[-1]
-                st.metric("Latest price", f"{latest_price:.3f}")
-            else:
-                st.info(f"No price series found for {candidate}.")
-
-    with cols[2]:
-        st.subheader("Price Gap")
-
-        if {"Benjamin Netanyahu", "Naftali Bennett"}.issubset(wide.columns):
-            gap = wide["Benjamin Netanyahu"] - wide["Naftali Bennett"]
-            st.line_chart(gap)
-            latest_gap = gap.dropna().iloc[-1]
-            st.metric("Latest gap", f"{latest_gap:.3f}")
-        else:
-            st.info("Price gap requires both candidate series.")
+def normalize_0_1(series: pd.Series) -> pd.Series:
+    series = pd.to_numeric(series, errors="coerce").fillna(0)
+    min_value = series.min()
+    max_value = series.max()
+    if max_value == min_value:
+        return series * 0
+    return (series - min_value) / (max_value - min_value)
 
 
-def show_multiclass_dataset() -> None:
-    st.header("3. Final Multiclass Dataset")
-
-    df = read_csv_if_exists(FINAL_DATASET_PATH)
-    market_df = read_csv_if_exists(MARKET_FEATURES_PATH)
-    active_df = df if df is not None else market_df
-
-    if active_df is None:
-        st.info("No final dataset yet. Run build_market_features.py and build_market_sentiment_dataset.py.")
-        return
-
-    metric_cols = st.columns(4)
-
-    metric_cols[0].metric("Rows", f"{len(active_df):,}")
-
-    if "candidate" in active_df.columns:
-        metric_cols[1].metric("Candidates", active_df["candidate"].nunique())
-    else:
-        metric_cols[1].metric("Candidates", 0)
-
-    if "horizon" in active_df.columns:
-        metric_cols[2].metric("Horizons", active_df["horizon"].nunique())
-    else:
-        metric_cols[2].metric("Horizons", 0)
-
-    metric_cols[3].metric("Target", "Up / Down / Stable")
-
-    if "horizon" in active_df.columns and "target_multiclass" in active_df.columns:
-        st.subheader("Class Distribution by Horizon")
-
-        distribution = (
-            active_df.groupby(["horizon", "target_multiclass"])
-            .size()
-            .reset_index(name="count")
-            .pivot(index="horizon", columns="target_multiclass", values="count")
-            .fillna(0)
-            .astype(int)
-        )
-
-        st.dataframe(distribution, use_container_width=True)
-        st.bar_chart(distribution)
-
-    st.subheader("Sample Final Dataset Rows")
-    st.dataframe(active_df.head(30), use_container_width=True)
+def show_no_x_data_message() -> None:
+    st.info("No X data available for this candidate. Neutral/default sentiment features were used after the merge.")
 
 
-def parse_result_metrics(text: str) -> pd.DataFrame:
+def candidate_has_x_posts(posts_df: pd.DataFrame | None, candidate: str | None) -> bool:
+    if posts_df is None or not candidate or "candidate" not in posts_df.columns:
+        return False
+    return not posts_df[posts_df["candidate"] == candidate].empty
+
+
+def candidate_has_nonzero_sentiment(data: pd.DataFrame, sentiment_columns: list[str]) -> bool:
+    available = [column for column in sentiment_columns if column in data.columns]
+    if not available or data.empty:
+        return False
+    values = data[available].apply(pd.to_numeric, errors="coerce").fillna(0)
+    return bool((values.abs().sum(axis=1) > 0).any())
+
+
+def clean_feature_display(row: pd.Series, columns: list[str]) -> pd.DataFrame:
+    display = pd.DataFrame([row[columns]]).copy()
+    numeric_columns = [column for column in display.columns if column != "timestamp"]
+    for column in numeric_columns:
+        display[column] = pd.to_numeric(display[column], errors="coerce").fillna(0)
+    if "timestamp" in display.columns:
+        display["timestamp"] = display["timestamp"].fillna("No X data")
+    return display.fillna("No X data")
+
+
+def parse_result_metrics(text: str | None) -> pd.DataFrame:
+    if not text:
+        return pd.DataFrame()
+
     rows = []
     current_horizon = None
     current_model = None
-
     for line in text.splitlines():
         horizon_match = re.match(r"## Horizon: (.+)", line)
         model_match = re.match(r"### (.+)", line)
@@ -240,216 +168,325 @@ def parse_result_metrics(text: str) -> pd.DataFrame:
         f1_match = re.match(r"- Macro-F1: ([0-9.]+)", line)
 
         if horizon_match:
-            current_horizon = horizon_match.group(1)
-
+            current_horizon = horizon_match.group(1).strip()
         elif model_match:
-            current_model = model_match.group(1)
-            rows.append({"horizon": current_horizon, "model": current_model})
-
+            current_model = model_match.group(1).strip()
+            if current_model != "Horizon Summary":
+                rows.append({"horizon": current_horizon, "model": current_model})
         elif accuracy_match and rows:
             rows[-1]["accuracy"] = float(accuracy_match.group(1))
-
         elif f1_match and rows:
             rows[-1]["macro_f1"] = float(f1_match.group(1))
 
     return pd.DataFrame(rows)
 
 
-def show_model_results() -> None:
-    st.header("4. Final Model Comparison")
+def latest_price_table(price_df: pd.DataFrame) -> pd.DataFrame:
+    prices = prepare_timestamp(price_df)
+    prices["price"] = pd.to_numeric(prices["price"], errors="coerce")
+    prices = prices.dropna(subset=["candidate", "price"])
+    latest_idx = prices.sort_values("timestamp").groupby("candidate")["timestamp"].idxmax()
+    latest = prices.loc[latest_idx, ["timestamp", "candidate", "price"]].copy()
+    latest = latest.sort_values("price", ascending=False).reset_index(drop=True)
+    latest["rank"] = latest["price"].rank(ascending=False, method="min").astype(int)
+    return latest[["rank", "candidate", "price", "timestamp"]]
 
-    text = read_text_if_exists(FINAL_RESULTS_PATH)
-    if text is None:
-        st.info("No final model comparison yet. Run python src/train_combined_model.py.")
-        return
 
-    metrics = parse_result_metrics(text)
+def candidate_series(price_df: pd.DataFrame, candidate: str) -> pd.DataFrame:
+    prices = prepare_timestamp(price_df)
+    prices["price"] = pd.to_numeric(prices["price"], errors="coerce")
+    prices = prices[prices["candidate"] == candidate].dropna(subset=["price"])
+    return prices.groupby("timestamp", as_index=False).agg(price=("price", "mean")).sort_values("timestamp")
 
-    if not metrics.empty:
-        st.subheader("Metrics Summary")
 
-        horizon_order = ["1h", "2h", "24h"]
-        metrics["horizon"] = pd.Categorical(metrics["horizon"], categories=horizon_order, ordered=True)
-        metrics = metrics.sort_values(["horizon", "macro_f1"], ascending=[True, False])
+def compute_change_table(final_df: pd.DataFrame, window: str) -> pd.DataFrame:
+    data = prepare_timestamp(final_df)
+    data = data[data["horizon"] == "1h"].sort_values(["candidate", "timestamp"])
+    keep_cols = ["timestamp", "candidate", "candidate_price", f"rolling_{window}_sentiment_mean"]
+    keep_cols = [column for column in keep_cols if column in data.columns]
+    data = data[keep_cols].drop_duplicates(["candidate", "timestamp"])
+    rows = []
+    delta = pd.Timedelta(hours=int(window.replace("h", "")))
 
-        st.dataframe(metrics, use_container_width=True, hide_index=True)
-
-        st.subheader("Best Model by Horizon")
-
-        best_by_horizon = (
-            metrics.sort_values(["horizon", "macro_f1"], ascending=[True, False])
-            .groupby("horizon", observed=False)
-            .head(1)
-            .reset_index(drop=True)
+    for candidate, group in data.groupby("candidate"):
+        group = group.sort_values("timestamp")
+        if group.empty:
+            continue
+        latest = group.iloc[-1]
+        past_time = latest["timestamp"] - delta
+        past_rows = group[group["timestamp"] <= past_time]
+        if past_rows.empty:
+            continue
+        past = past_rows.iloc[-1]
+        sentiment_col = f"rolling_{window}_sentiment_mean"
+        rows.append(
+            {
+                "candidate": candidate,
+                "latest_price": latest.get("candidate_price", 0),
+                f"price_change_{window}": latest.get("candidate_price", 0) - past.get("candidate_price", 0),
+                f"rolling_sentiment_change_{window}": latest.get(sentiment_col, 0) - past.get(sentiment_col, 0),
+            }
         )
-
-        st.dataframe(best_by_horizon, use_container_width=True, hide_index=True)
-
-        st.subheader("Macro-F1 by Model and Horizon")
-
-        chart_df = metrics.dropna(subset=["macro_f1"]).pivot(
-            index="model",
-            columns="horizon",
-            values="macro_f1",
-        )
-
-        if not chart_df.empty:
-            st.bar_chart(chart_df)
-
-    with st.expander("Full results report", expanded=False):
-        st.markdown(text)
+    return pd.DataFrame(rows).sort_values(f"price_change_{window}", key=lambda s: s.abs(), ascending=False)
 
 
-def show_sentiment_summary() -> None:
-    st.header("5. Sentiment Features")
-
-    posts_df = read_csv_if_exists(SENTIMENT_POSTS_PATH)
-    hourly_df = read_csv_if_exists(SENTIMENT_HOURLY_PATH)
-
-    if posts_df is None and hourly_df is None:
-        st.info("No sentiment outputs yet. Run python src/sentiment.py and python src/build_combined_dataset.py.")
-        return
-
-    if posts_df is not None:
-        cols = st.columns(5)
-
-        cols[0].metric("Posts with sentiment", f"{len(posts_df):,}")
-
-        if "sentiment_score" in posts_df.columns:
-            avg_score = posts_df["sentiment_score"].mean()
-            cols[1].metric("Avg score", f"{avg_score:.3f}")
-
-        if "sentiment_label" in posts_df.columns:
-            counts = posts_df["sentiment_label"].value_counts()
-
-            cols[2].metric("Positive", int(counts.get("positive", 0)))
-            cols[3].metric("Negative", int(counts.get("negative", 0)))
-            cols[4].metric("Neutral", int(counts.get("neutral", 0)))
-
-            st.subheader("Sentiment Label Distribution")
-            st.bar_chart(counts)
-
-        if "candidate" in posts_df.columns and "sentiment_label" in posts_df.columns:
-            st.subheader("Sentiment by Candidate")
-
-            sentiment_by_candidate = (
-                posts_df.groupby(["candidate", "sentiment_label"])
-                .size()
-                .reset_index(name="count")
+def topic_summary(posts_df: pd.DataFrame, candidate: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    posts = posts_df[posts_df["candidate"] == candidate].copy()
+    rows = []
+    sentiment_rows = []
+    for topic in TOPICS:
+        column = f"topic_{topic}"
+        if column not in posts.columns:
+            continue
+        topic_posts = posts[pd.to_numeric(posts[column], errors="coerce").fillna(0) == 1]
+        rows.append({"topic": topic, "post_count": len(topic_posts)})
+        if not topic_posts.empty:
+            sentiment_rows.append(
+                {
+                    "topic": topic,
+                    "avg_sentiment": pd.to_numeric(topic_posts["sentiment_score"], errors="coerce").fillna(0).mean(),
+                    "positive": (topic_posts["sentiment_label"] == "positive").sum(),
+                    "negative": (topic_posts["sentiment_label"] == "negative").sum(),
+                    "neutral": (topic_posts["sentiment_label"] == "neutral").sum(),
+                }
             )
-
-            st.dataframe(sentiment_by_candidate, use_container_width=True, hide_index=True)
-
-        available_cols = [
-            "timestamp",
-            "candidate",
-            "query_group",
-            "lang",
-            "text",
-            "sentiment_label",
-            "sentiment_score",
-            "target_sentiment",
-            "intensity_score",
-            "main_entity",
-            "mentioned_parties",
-            "political_topics",
-            "matched_political_phrases",
-        ]
-
-        st.subheader("Sample Sentiment Rows")
-
-        existing_cols = [c for c in available_cols if c in posts_df.columns]
-        st.dataframe(posts_df[existing_cols].head(25), use_container_width=True)
-
-    if hourly_df is not None and "timestamp" in hourly_df.columns:
-        st.subheader("Hourly Sentiment Features")
-
-        hourly_df = hourly_df.copy()
-        hourly_df["timestamp"] = pd.to_datetime(hourly_df["timestamp"], errors="coerce")
-        hourly_df = hourly_df.dropna(subset=["timestamp"]).sort_values("timestamp")
-
-        st.dataframe(hourly_df.head(30), use_container_width=True)
-
-        if "avg_sentiment_score" in hourly_df.columns:
-            st.line_chart(hourly_df.set_index("timestamp")["avg_sentiment_score"])
+        else:
+            sentiment_rows.append({"topic": topic, "avg_sentiment": 0, "positive": 0, "negative": 0, "neutral": 0})
+    counts = pd.DataFrame(rows)
+    sentiment = pd.DataFrame(sentiment_rows)
+    if not counts.empty:
+        counts["topic_label"] = counts["topic"].map(TOPIC_LABELS).fillna(counts["topic"])
+        counts = counts.sort_values("post_count", ascending=False)
+    if not sentiment.empty:
+        sentiment["topic_label"] = sentiment["topic"].map(TOPIC_LABELS).fillna(sentiment["topic"])
+    return counts, sentiment
 
 
-def show_conclusions() -> None:
-    st.header("6. Conclusions")
-
-    c1, c2, c3 = st.columns(3)
-
-    with c1:
-        st.subheader("1h Horizon")
-        st.metric("Best Macro-F1", "0.4416")
-        st.write(
-            """
-Best model: **Market-only Random Forest**.
-
-For the 1h horizon, sentiment features did not improve the model.
-"""
-        )
-
-    with c2:
-        st.subheader("2h Horizon")
-        st.metric("Best Macro-F1", "0.4968")
-        st.write(
-            """
-Best model: **Market + Sentiment Random Forest**.
-
-This was the clearest case where sentiment features improved prediction quality.
-"""
-        )
-
-    with c3:
-        st.subheader("24h Horizon")
-        st.metric("Best Macro-F1", "0.3631")
-        st.write(
-            """
-Best Macro-F1 model: **Market + Sentiment Logistic Regression**.
-
-The result is mixed: sentiment improved Macro-F1, but Market-only Random Forest had higher Accuracy.
-"""
-        )
-
-    st.success(
-        """
-Overall conclusion: X/Twitter sentiment showed a mixed but meaningful contribution.
-The strongest improvement appeared in the 2h horizon, suggesting that sentiment may contain useful short-term predictive signal.
-However, the effect was not consistent across all prediction windows.
-"""
+def attention_table(posts_df: pd.DataFrame, final_df: pd.DataFrame) -> pd.DataFrame:
+    posts = numeric(posts_df.copy(), ["likes", "reposts", "comments"])
+    base = posts.groupby("candidate", as_index=False).agg(
+        post_count=("post_id", "nunique"),
+        total_likes=("likes", "sum"),
+        total_reposts=("reposts", "sum"),
+        total_comments=("comments", "sum"),
     )
+    base["total_engagement"] = base["total_likes"] + base["total_reposts"] + base["total_comments"]
+
+    data = prepare_timestamp(final_df)
+    data = data[data["horizon"] == "1h"].sort_values("timestamp")
+    if "rolling_24h_post_count" in data.columns:
+        latest = data.groupby("candidate").tail(1)[["candidate", "rolling_24h_post_count"]]
+        base = base.merge(latest, on="candidate", how="left")
+    return base.fillna(0).sort_values("post_count", ascending=False)
 
 
-def show_limitations() -> None:
-    st.header("7. Limitations and Future Work")
-
-    st.write(
-        """
-Main limitations:
-- X/Twitter API access was limited by a small prepaid academic budget.
-- The final collection includes 996 public posts, but a larger dataset could improve robustness.
-- Hebrew sentiment analysis is challenging and may require a stronger Hebrew-specific sentiment model.
-- Polymarket prices are available at hourly resolution, so the active horizons are 1h, 2h and 24h.
-
-Future work:
-- Collect more data over a longer time period.
-- Improve Hebrew sentiment classification.
-- Add more candidates and political events.
-- Compare additional models and feature engineering methods.
-"""
-    )
+def prepare_model_features(df: pd.DataFrame, feature_columns: list[str]) -> pd.DataFrame:
+    available = [column for column in feature_columns if column in df.columns]
+    X = df[available + ["candidate"]].copy()
+    for column in available:
+        X[column] = pd.to_numeric(X[column], errors="coerce").fillna(0)
+    return pd.get_dummies(X, columns=["candidate"], drop_first=False).astype(float)
 
 
-st.info(
-    "X/Twitter data is used as predictive features; labels are derived from future Polymarket price movements. "
-    "This dashboard uses the real X dataset collected for the project: 996 unique public posts in Hebrew and English."
+def example_prediction(final_df: pd.DataFrame, candidate: str, horizon: str) -> tuple[str | None, pd.Series | None, str]:
+    data = prepare_timestamp(final_df)
+    data = data[(data["candidate"] == candidate) & (data["horizon"] == horizon)].sort_values("timestamp").copy()
+    if len(data) < 20:
+        return None, None, "Not enough rows for an example prediction."
+
+    latest_row = data.iloc[-1]
+    train_df = data.iloc[:-1].copy()
+    if train_df["target_multiclass"].nunique() < 2:
+        return None, latest_row, "Not enough class variety before the latest row."
+
+    forbidden_columns = {"target_multiclass", "future_price", "price_change"}
+    features = [
+        column for column in MARKET_FEATURES + SENTIMENT_FEATURES
+        if column in data.columns and column not in forbidden_columns and "future" not in column.lower() and "target" not in column.lower()
+    ]
+    X_train = prepare_model_features(train_df, features)
+    X_latest = prepare_model_features(pd.DataFrame([latest_row]), features)
+    X_train, X_latest = X_train.align(X_latest, join="left", axis=1, fill_value=0)
+
+    model = RandomForestClassifier(n_estimators=200, random_state=42, min_samples_leaf=2, class_weight="balanced")
+    model.fit(X_train, train_df["target_multiclass"])
+    prediction = model.predict(X_latest)[0]
+    return str(prediction), latest_row, "Prediction generated by a dashboard-only Random Forest trained on earlier rows for the selected candidate/horizon."
+
+
+price_df = read_csv_if_exists(PRICE_HISTORY_PATH)
+final_df = read_csv_if_exists(FINAL_DATASET_PATH)
+topic_posts_df = read_csv_if_exists(TOPIC_POSTS_PATH)
+results_text = read_text_if_exists(RESULTS_PATH)
+
+if price_df is None and final_df is None and topic_posts_df is None:
+    st.warning("No all-candidates data files were found yet. Run the pipeline first.")
+
+candidates = []
+for df in [final_df, price_df, topic_posts_df]:
+    if df is not None and "candidate" in df.columns:
+        candidates.extend(df["candidate"].dropna().unique().tolist())
+candidates = sorted(set(candidates))
+selected_candidate = st.sidebar.selectbox("Candidate", candidates) if candidates else None
+selected_horizon = st.sidebar.selectbox("Prediction horizon", HORIZONS)
+selected_window = st.sidebar.selectbox("Change window", ["24h", "48h"])
+
+st.sidebar.markdown("Run dashboard:")
+st.sidebar.code("python -m streamlit run dashboard/app.py", language="powershell")
+
+section_1, section_2, section_3, section_4, section_5, section_6, section_7 = st.tabs(
+    [
+        "1. Current Market",
+        "2. 24h/48h Changes",
+        "3. Topics",
+        "4. Sentiment vs Price",
+        "5. X Attention",
+        "6. Model Performance",
+        "7. Example Prediction",
+    ]
 )
 
-show_x_collection_summary()
-show_market_prices()
-show_multiclass_dataset()
-show_model_results()
-show_sentiment_summary()
-show_conclusions()
-show_limitations()
+with section_1:
+    st.header("Current Polymarket state")
+    if price_df is None:
+        st.info("Missing data/raw/polymarket_price_history_all_candidates.csv")
+    else:
+        latest = latest_price_table(price_df)
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Candidates", latest["candidate"].nunique())
+        c2.metric("Current leader", latest.iloc[0]["candidate"] if not latest.empty else "N/A")
+        c3.metric("Leader price", f"{latest.iloc[0]['price']:.3f}" if not latest.empty else "N/A")
+        st.subheader("Latest prices and ranks")
+        st.dataframe(latest, use_container_width=True, hide_index=True)
+        if selected_candidate:
+            st.subheader(f"Price over time: {selected_candidate}")
+            series = candidate_series(price_df, selected_candidate)
+            if series.empty:
+                st.info("No price series found for this candidate.")
+            else:
+                st.line_chart(series.set_index("timestamp")["price"])
+
+with section_2:
+    st.header(f"Who changed most in {selected_window}?")
+    if final_df is None:
+        st.info("Missing data/final/market_sentiment_dataset_all_candidates.csv")
+    else:
+        changes = compute_change_table(final_df, selected_window)
+        if changes.empty:
+            st.info("Not enough history to compute this window.")
+        else:
+            st.dataframe(changes, use_container_width=True, hide_index=True)
+            st.subheader(f"Absolute price change by candidate ({selected_window})")
+            chart = changes.set_index("candidate")[[f"price_change_{selected_window}"]]
+            st.bar_chart(chart)
+            sentiment_col = f"rolling_sentiment_change_{selected_window}"
+            if sentiment_col in changes.columns:
+                st.subheader(f"Rolling sentiment change by candidate ({selected_window})")
+                st.bar_chart(changes.set_index("candidate")[[sentiment_col]])
+
+with section_3:
+    st.header("What topics are discussed around a selected candidate?")
+    if topic_posts_df is None or not selected_candidate:
+        st.info("Missing topic-tagged X posts or selected candidate.")
+    else:
+        topic_counts, sentiment_by_topic = topic_summary(topic_posts_df, selected_candidate)
+        if not candidate_has_x_posts(topic_posts_df, selected_candidate) or topic_counts["post_count"].sum() == 0:
+            show_no_x_data_message()
+        st.subheader("Topic distribution")
+        st.bar_chart(topic_counts.set_index("topic_label")[["post_count"]])
+        st.subheader("Sentiment by topic")
+        st.dataframe(sentiment_by_topic, use_container_width=True, hide_index=True)
+        st.bar_chart(sentiment_by_topic.set_index("topic_label")[["positive", "negative", "neutral"]])
+
+with section_4:
+    st.header("Does sentiment move with price?")
+    if final_df is None or not selected_candidate:
+        st.info("Missing final dataset or selected candidate.")
+    else:
+        data = prepare_timestamp(final_df)
+        data = data[(data["candidate"] == selected_candidate) & (data["horizon"] == "1h")].drop_duplicates(["timestamp", "candidate"])
+        cols = ["timestamp", "candidate_price", "rolling_24h_sentiment_mean"]
+        cols = [column for column in cols if column in data.columns]
+        data = numeric(data[cols].copy(), ["candidate_price", "rolling_24h_sentiment_mean"]).sort_values("timestamp")
+        if not candidate_has_x_posts(topic_posts_df, selected_candidate) or not candidate_has_nonzero_sentiment(data, ["rolling_24h_sentiment_mean"]):
+            show_no_x_data_message()
+        if data.empty or len(cols) < 3:
+            st.info("Required price/sentiment columns are missing for this candidate.")
+        else:
+            chart_data = data.set_index("timestamp")[["candidate_price", "rolling_24h_sentiment_mean"]].copy()
+            chart_data["price_normalized"] = normalize_0_1(chart_data["candidate_price"])
+            chart_data["rolling_24h_sentiment_normalized"] = normalize_0_1(chart_data["rolling_24h_sentiment_mean"])
+            st.line_chart(chart_data[["price_normalized", "rolling_24h_sentiment_normalized"]])
+            st.caption("Both series are normalized to 0-1 so their timing and direction are comparable.")
+
+with section_5:
+    st.header("Which candidates get most X attention?")
+    if topic_posts_df is None or final_df is None:
+        st.info("Missing topic-tagged posts or final dataset.")
+    else:
+        attention = attention_table(topic_posts_df, final_df)
+        if selected_candidate and not candidate_has_x_posts(topic_posts_df, selected_candidate):
+            show_no_x_data_message()
+        attention_top = attention.head(10)
+        st.dataframe(attention, use_container_width=True, hide_index=True)
+        st.subheader("Top 10 by post count")
+        st.bar_chart(attention_top.sort_values("post_count", ascending=False).set_index("candidate")[["post_count"]])
+        st.subheader("Top 10 by engagement")
+        engagement_top = attention.sort_values("total_engagement", ascending=False).head(10)
+        st.bar_chart(engagement_top.set_index("candidate")[["total_engagement"]])
+        if "rolling_24h_post_count" in attention.columns:
+            st.subheader("Top 10 by rolling 24h post count")
+            rolling_top = attention.sort_values("rolling_24h_post_count", ascending=False).head(10)
+            st.bar_chart(rolling_top.set_index("candidate")[["rolling_24h_post_count"]])
+
+with section_6:
+    st.header("Model performance")
+    metrics = parse_result_metrics(results_text)
+    if metrics.empty:
+        st.info("Missing or empty results/final_model_comparison_all_candidates.md")
+    else:
+        metrics = metrics.dropna(subset=["macro_f1"]).sort_values(["horizon", "macro_f1"], ascending=[True, False])
+        st.subheader("Model comparison by horizon")
+        st.dataframe(metrics, use_container_width=True, hide_index=True)
+        st.subheader("Best model by Macro-F1")
+        best = metrics.groupby("horizon", as_index=False).head(1)
+        st.dataframe(best, use_container_width=True, hide_index=True)
+        chart_horizon = st.selectbox("Horizon for Macro-F1 chart", sorted(metrics["horizon"].dropna().unique()), key="model_chart_horizon")
+        chart_metrics = metrics[metrics["horizon"] == chart_horizon].sort_values("macro_f1", ascending=False)
+        st.subheader(f"Macro-F1 by model ({chart_horizon})")
+        st.bar_chart(chart_metrics.set_index("model")[["macro_f1"]])
+        with st.expander("Full model report", expanded=False):
+            st.markdown(results_text or "")
+
+with section_7:
+    st.header("Example prediction")
+    st.write("This prediction is about the selected candidate's Polymarket price movement: Up, Down, or Stable.")
+    st.warning("This is a model prediction for Polymarket price movement, not the actual election winner.")
+    if final_df is None or not selected_candidate:
+        st.info("Missing final dataset or selected candidate.")
+    else:
+        prediction, latest_row, note = example_prediction(final_df, selected_candidate, selected_horizon)
+        st.caption(note)
+        if prediction is None:
+            st.info("Could not create an example prediction for this selection.")
+        else:
+            st.metric("Latest predicted movement", prediction)
+        if latest_row is not None:
+            key_features = [
+                "timestamp",
+                "candidate_price",
+                "candidate_rank",
+                "gap_to_market_leader",
+                "price_share",
+                "rolling_24h_sentiment_mean",
+                "rolling_24h_post_count",
+                "num_posts",
+                "avg_sentiment_score",
+            ]
+            available = [column for column in key_features if column in latest_row.index]
+            if not candidate_has_x_posts(topic_posts_df, selected_candidate) or not candidate_has_nonzero_sentiment(pd.DataFrame([latest_row]), ["rolling_24h_sentiment_mean", "rolling_24h_post_count", "num_posts", "avg_sentiment_score"]):
+                show_no_x_data_message()
+            st.subheader("Key latest features")
+            st.dataframe(clean_feature_display(latest_row, available), use_container_width=True, hide_index=True)
+
+
