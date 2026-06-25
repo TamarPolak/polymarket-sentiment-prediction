@@ -10,10 +10,22 @@ from sklearn.ensemble import RandomForestClassifier
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-FINAL_DATASET_PATH = PROJECT_ROOT / "data" / "final" / "market_sentiment_dataset_all_candidates.csv"
-PRICE_HISTORY_PATH = PROJECT_ROOT / "data" / "raw" / "polymarket_price_history_all_candidates.csv"
-TOPIC_POSTS_PATH = PROJECT_ROOT / "data" / "processed" / "x_posts_with_sentiment_topics_all_candidates.csv"
+PUBLIC_FINAL_DATASET_PATH = PROJECT_ROOT / "data" / "public" / "market_sentiment_dataset_all_candidates.csv"
+LOCAL_FINAL_DATASET_PATH = PROJECT_ROOT / "data" / "final" / "market_sentiment_dataset_all_candidates.csv"
+PUBLIC_PRICE_HISTORY_PATH = PROJECT_ROOT / "data" / "public" / "polymarket_price_history_all_candidates.csv"
+LOCAL_PRICE_HISTORY_PATH = PROJECT_ROOT / "data" / "raw" / "polymarket_price_history_all_candidates.csv"
+PUBLIC_TOPIC_POSTS_PATH = PROJECT_ROOT / "data" / "public" / "x_posts_with_sentiment_topics_all_candidates_public.csv"
+LOCAL_TOPIC_POSTS_PATH = PROJECT_ROOT / "data" / "processed" / "x_posts_with_sentiment_topics_all_candidates.csv"
 RESULTS_PATH = PROJECT_ROOT / "results" / "final_model_comparison_all_candidates.md"
+
+
+def prefer_public_path(public_path: Path, local_path: Path) -> Path:
+    return public_path if public_path.exists() else local_path
+
+
+FINAL_DATASET_PATH = prefer_public_path(PUBLIC_FINAL_DATASET_PATH, LOCAL_FINAL_DATASET_PATH)
+PRICE_HISTORY_PATH = prefer_public_path(PUBLIC_PRICE_HISTORY_PATH, LOCAL_PRICE_HISTORY_PATH)
+TOPIC_POSTS_PATH = prefer_public_path(PUBLIC_TOPIC_POSTS_PATH, LOCAL_TOPIC_POSTS_PATH)
 
 HORIZONS = ["1h", "2h", "24h"]
 TARGET_CLASSES = ["Up", "Down", "Stable"]
@@ -264,8 +276,10 @@ def topic_summary(posts_df: pd.DataFrame, candidate: str) -> tuple[pd.DataFrame,
 
 def attention_table(posts_df: pd.DataFrame, final_df: pd.DataFrame) -> pd.DataFrame:
     posts = numeric(posts_df.copy(), ["likes", "reposts", "comments"])
+    post_count_source = "post_id" if "post_id" in posts.columns else "candidate"
+    post_count_agg = "nunique" if post_count_source == "post_id" else "size"
     base = posts.groupby("candidate", as_index=False).agg(
-        post_count=("post_id", "nunique"),
+        post_count=(post_count_source, post_count_agg),
         total_likes=("likes", "sum"),
         total_reposts=("reposts", "sum"),
         total_comments=("comments", "sum"),
@@ -387,7 +401,7 @@ with section_2:
 with section_3:
     st.header("What topics are discussed around a selected candidate?")
     if topic_posts_df is None or not selected_candidate:
-        st.info("Missing topic-tagged X posts or selected candidate.")
+        st.info("Missing public/local topic-tagged X features or selected candidate.")
     else:
         topic_counts, sentiment_by_topic = topic_summary(topic_posts_df, selected_candidate)
         if not candidate_has_x_posts(topic_posts_df, selected_candidate) or topic_counts["post_count"].sum() == 0:
@@ -422,7 +436,7 @@ with section_4:
 with section_5:
     st.header("Which candidates get most X attention?")
     if topic_posts_df is None or final_df is None:
-        st.info("Missing topic-tagged posts or final dataset.")
+        st.info("Missing public/local topic-tagged X features or final dataset.")
     else:
         attention = attention_table(topic_posts_df, final_df)
         if selected_candidate and not candidate_has_x_posts(topic_posts_df, selected_candidate):
@@ -488,5 +502,6 @@ with section_7:
                 show_no_x_data_message()
             st.subheader("Key latest features")
             st.dataframe(clean_feature_display(latest_row, available), use_container_width=True, hide_index=True)
+
 
 
