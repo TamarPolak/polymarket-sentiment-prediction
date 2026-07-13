@@ -1,4 +1,5 @@
 ﻿# Polymarket Sentiment Prediction
+🔗 **דף הנחיתה של הפרויקט:** https://tamarpolak.github.io/polymarket-sentiment-prediction/ 
 
 This project predicts short-term price movement in a Polymarket political prediction market using market data and sentiment features from public political discourse.
 
